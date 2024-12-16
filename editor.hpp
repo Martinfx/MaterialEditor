@@ -68,15 +68,15 @@ public:
 
             glBindVertexArray(cubeVAO);
 
-            // Pozice atributu
+
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
             glEnableVertexAttribArray(0);
 
-            // Normály atributu
+
             glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
             glEnableVertexAttribArray(1);
 
-            // Texturové souřadnice
+
             glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
             glEnableVertexAttribArray(2);
 
@@ -90,8 +90,6 @@ public:
         glUniformMatrix4fv(glGetUniformLocation(mainShader.getShaderProgram(), "view"), 1, GL_FALSE, &view[0][0]);
         glUniformMatrix4fv(glGetUniformLocation(mainShader.getShaderProgram(), "model"), 1, GL_FALSE, &model[0][0]);
         glUniform3fv(glGetUniformLocation(mainShader.getShaderProgram(), "color"), 1, &color[0]);
-
-        // Vykreslení kostky
         glBindVertexArray(cubeVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
@@ -102,7 +100,7 @@ public:
         glGenFramebuffers(1, &fbo);
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);
 
-        // Vytvoření textury pro barvu
+
         glGenTextures(1, &texture);
         glBindTexture(GL_TEXTURE_2D, texture);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 800, 600, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
@@ -110,16 +108,16 @@ public:
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
 
-        // Vytvoření renderbufferu pro hloubku
+
         glGenRenderbuffers(1, &rbo);
         glBindRenderbuffer(GL_RENDERBUFFER, rbo);
         glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 800, 600);
         glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
 
-        // Kontrola kompletnosti framebufferu
+
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         {
-            std::cerr << "Framebuffer není kompletní!" << std::endl;
+            std::cerr << "Framebuffer is not complete!" << std::endl;
         }
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -136,7 +134,7 @@ public:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 
-        glm::mat4 projection = glm::perspective(glm::radians(45.0f), 200.0f / 200.0f, 0.1f, 100.0f);
+        glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
         glm::mat4 view = glm::lookAt(glm::vec3(3.0f, 3.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         glm::mat4 model = glm::mat4(1.0f);
 
@@ -620,8 +618,7 @@ public:
                 ImGui::TextUnformatted("Input");
                 ImNodes::EndInputAttribute();
 
-                // Získání barvy z uzlu
-                glm::vec3 color(1.0f, 1.0f, 1.0f); // Výchozí barva
+                glm::vec3 color(1.0f, 1.0f, 1.0f);
                 if (graph_.num_edges_from_node(node.ui.viewport.input) > 0)
                 {
                     int input_id = graph_.node(node.ui.viewport.input).value;
@@ -630,7 +627,6 @@ public:
                     color.b = clamp(graph_.node(input_id + 2).value, 0.0f, 1.0f);
                 }
 
-                // Vykreslení kostky do framebufferu
                 render_to_framebuffer(color);
 
                 ImGui::Image((ImTextureID)static_cast<intptr_t>(texture), ImVec2(200, 200));
