@@ -24,7 +24,8 @@ add_executable(materialeditor main.cpp
     editor.hpp
     graph.hpp
     cube.hpp
-    shader.hpp)
+    shader.hpp
+    framebuffer.hpp)
 
 target_link_libraries(${PROJECT_NAME} ${OPENGL_gl_LIBRARY} ${GLFW_LIBRARIES} ${IMGUI_LIBRARIES} imnodes glfw imgui::imgui OpenGL::GL)
 

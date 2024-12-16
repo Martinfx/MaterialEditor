@@ -1,4 +1,7 @@
 # Node Editor
+![editor3](https://github.com/user-attachments/assets/9ca5da35-86d2-4cd6-8319-de3f828a28e3)
+
+
 
 ## Overview
 
@@ -40,7 +43,6 @@ color outputs, and a central **Viewport Node** for visualizing connected node ou
 - Libraries:
   - **ImGui**: GUI rendering.
   - **ImNodes**: Node-based graphical interface.
-  - **SDL2**: For time calculations.
 - A build system like **CMake**.
 
 ### Build Instructions

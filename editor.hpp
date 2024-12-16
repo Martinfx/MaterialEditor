@@ -14,6 +14,7 @@
 #include "graph.hpp"
 #include "cube.hpp"
 #include "shader.hpp"
+#include "framebuffer.hpp"
 
 template<class T>
 T clamp(T x, T a, T b)
@@ -31,7 +32,7 @@ public:
         : graph_(), nodes_(), root_node_id_(-1),
         minimap_location_(ImNodesMiniMapLocation_BottomRight)
     {
-        setup_framebuffer();
+        frameBuffer.InitFrameBuffer(800,600);
 
         mainShader.loadShader(shaderVertex, TypeShader::VERTEX_SHADER);
         mainShader.loadShader(shaderFragment, TypeShader::FRAGMENT_SHADER);
@@ -44,6 +45,7 @@ private:
     unsigned int rbo, ebo;
     unsigned int cubeVAO, cubeVBO = 0;
     Shader mainShader;
+    FrameBuffer frameBuffer;
 
 public:
 
@@ -56,7 +58,7 @@ public:
 
 
     void render_to_cube(const glm::vec3& color, const glm::mat4& projection, const glm::mat4& view, const glm::mat4& model) {
-        if(cubeVAO == 0) {
+       // if(cubeVAO == 0) {
             glGenVertexArrays(1, &cubeVAO);
             glGenBuffers(1, &cubeVBO);
 
@@ -82,7 +84,7 @@ public:
 
             glBindBuffer(GL_ARRAY_BUFFER, 0);
             glBindVertexArray(0);
-        }
+       // }
 
 
         mainShader.useShaderProgram();
@@ -95,37 +97,9 @@ public:
         glBindVertexArray(0);
     }
 
-    void setup_framebuffer()
-    {
-        glGenFramebuffers(1, &fbo);
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
-
-
-        glGenTextures(1, &texture);
-        glBindTexture(GL_TEXTURE_2D, texture);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 800, 600, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
-
-
-        glGenRenderbuffers(1, &rbo);
-        glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 800, 600);
-        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
-
-
-        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
-        {
-            std::cerr << "Framebuffer is not complete!" << std::endl;
-        }
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    }
-
     void render_to_framebuffer(glm::vec3 color)
     {
-        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        //frameBuffer.Bind();
         glViewport(0, 0, 800, 600);
         glEnable(GL_DEPTH_TEST);
 
@@ -141,7 +115,7 @@ public:
 
         render_to_cube(color, projection, view, model);
 
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        //frameBuffer.Unbind();
     }
 
     void show()
@@ -627,10 +601,11 @@ public:
                     color.b = clamp(graph_.node(input_id + 2).value, 0.0f, 1.0f);
                 }
 
+                frameBuffer.Bind();
                 render_to_framebuffer(color);
-
-                ImGui::Image((ImTextureID)static_cast<intptr_t>(texture), ImVec2(200, 200));
-
+                //frameBuffer.RescaleFrameBuffer(50,50);
+                ImGui::Image((ImTextureID)frameBuffer.getFrameTexture(), ImVec2(200, 200));
+                frameBuffer.Unbind();
                 ImNodes::EndNode();
             }
             break;
