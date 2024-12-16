@@ -12,7 +12,8 @@ enum class NodeType
     sine,
     time,
     value,
-    power
+    power,
+    viewport
 };
 
 struct Node

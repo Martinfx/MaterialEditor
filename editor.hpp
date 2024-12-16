@@ -4,10 +4,16 @@
 #include <sstream>
 #include <algorithm>
 #include <unordered_set>
+
+#include <imgui.h>
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
+
 #include "node.hpp"
 #include "link.hpp"
 #include "graph.hpp"
-#include <imgui.h>
+#include "cube.hpp"
+#include "shader.hpp"
 
 template<class T>
 T clamp(T x, T a, T b)
@@ -25,13 +31,119 @@ public:
         : graph_(), nodes_(), root_node_id_(-1),
         minimap_location_(ImNodesMiniMapLocation_BottomRight)
     {
+        setup_framebuffer();
+
+        mainShader.loadShader(shaderVertex, TypeShader::VERTEX_SHADER);
+        mainShader.loadShader(shaderFragment, TypeShader::FRAGMENT_SHADER);
+        mainShader.createShaderProgram();
     }
+
+private:
+    unsigned int fbo;      // Framebuffer Object
+    unsigned int texture;
+    unsigned int rbo, ebo;
+    unsigned int cubeVAO, cubeVBO = 0;
+    Shader mainShader;
+
+public:
 
     uint32_t getTicks() {
         static const auto startTime = std::chrono::steady_clock::now();
         auto now = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - startTime).count();
         return static_cast<uint32_t>(elapsed);
+    }
+
+
+    void render_to_cube(const glm::vec3& color, const glm::mat4& projection, const glm::mat4& view, const glm::mat4& model) {
+        if(cubeVAO == 0) {
+            glGenVertexArrays(1, &cubeVAO);
+            glGenBuffers(1, &cubeVBO);
+
+            glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(CubeVertices), CubeVertices, GL_STATIC_DRAW);
+
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(CubeIndices), CubeIndices, GL_STATIC_DRAW);
+
+            glBindVertexArray(cubeVAO);
+
+            // Pozice atributu
+            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(0);
+
+            // Normály atributu
+            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+            glEnableVertexAttribArray(1);
+
+            // Texturové souřadnice
+            glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+            glEnableVertexAttribArray(2);
+
+            glBindBuffer(GL_ARRAY_BUFFER, 0);
+            glBindVertexArray(0);
+        }
+
+
+        mainShader.useShaderProgram();
+        glUniformMatrix4fv(glGetUniformLocation(mainShader.getShaderProgram(), "projection"), 1, GL_FALSE, &projection[0][0]);
+        glUniformMatrix4fv(glGetUniformLocation(mainShader.getShaderProgram(), "view"), 1, GL_FALSE, &view[0][0]);
+        glUniformMatrix4fv(glGetUniformLocation(mainShader.getShaderProgram(), "model"), 1, GL_FALSE, &model[0][0]);
+        glUniform3fv(glGetUniformLocation(mainShader.getShaderProgram(), "color"), 1, &color[0]);
+
+        // Vykreslení kostky
+        glBindVertexArray(cubeVAO);
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glBindVertexArray(0);
+    }
+
+    void setup_framebuffer()
+    {
+        glGenFramebuffers(1, &fbo);
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+
+        // Vytvoření textury pro barvu
+        glGenTextures(1, &texture);
+        glBindTexture(GL_TEXTURE_2D, texture);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 800, 600, 0, GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texture, 0);
+
+        // Vytvoření renderbufferu pro hloubku
+        glGenRenderbuffers(1, &rbo);
+        glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, 800, 600);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+
+        // Kontrola kompletnosti framebufferu
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        {
+            std::cerr << "Framebuffer není kompletní!" << std::endl;
+        }
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    }
+
+    void render_to_framebuffer(glm::vec3 color)
+    {
+        glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+        glViewport(0, 0, 800, 600);
+        glEnable(GL_DEPTH_TEST);
+
+
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+        glm::mat4 projection = glm::perspective(glm::radians(45.0f), 200.0f / 200.0f, 0.1f, 100.0f);
+        glm::mat4 view = glm::lookAt(glm::vec3(3.0f, 3.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::mat4 model = glm::mat4(1.0f);
+
+
+        render_to_cube(color, projection, view, model);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
     }
 
     void show()
@@ -221,6 +333,21 @@ public:
                     graph_.insert_edge(ui_node.id, ui_node.ui.power.rhs);
 
                     nodes_.push_back(ui_node);
+                    ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
+                }
+
+                if (ImGui::MenuItem("viewport"))
+                {
+                    const Node value(NodeType::value, 0.f);
+                    const Node op(NodeType::viewport);
+
+                    UiNode ui_node;
+                    ui_node.type = UiNodeType::viewport;
+                    ui_node.ui.viewport.input = graph_.insert_node(value);
+                    ui_node.id = graph_.insert_node(op);
+                    // graph_.insert_edge(ui_node.id, ui_node.ui.viewport.input);
+                    nodes_.push_back(ui_node);
+                    std::cout << "Viewport node created with ID: " << ui_node.id << std::endl;
                     ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
                 }
 
@@ -481,7 +608,38 @@ public:
                 ImNodes::EndNode();
             }
             break;
+            case UiNodeType::viewport:
+            {
+                ImNodes::BeginNode(node.id);
+
+                ImNodes::BeginNodeTitleBar();
+                ImGui::TextUnformatted("3D Viewport");
+                ImNodes::EndNodeTitleBar();
+
+                ImNodes::BeginInputAttribute(node.ui.viewport.input);
+                ImGui::TextUnformatted("Input");
+                ImNodes::EndInputAttribute();
+
+                // Získání barvy z uzlu
+                glm::vec3 color(1.0f, 1.0f, 1.0f); // Výchozí barva
+                if (graph_.num_edges_from_node(node.ui.viewport.input) > 0)
+                {
+                    int input_id = graph_.node(node.ui.viewport.input).value;
+                    color.r = clamp(graph_.node(input_id).value, 0.0f, 1.0f);
+                    color.g = clamp(graph_.node(input_id + 1).value, 0.0f, 1.0f);
+                    color.b = clamp(graph_.node(input_id + 2).value, 0.0f, 1.0f);
+                }
+
+                // Vykreslení kostky do framebufferu
+                render_to_framebuffer(color);
+
+                ImGui::Image((ImTextureID)static_cast<intptr_t>(texture), ImVec2(200, 200));
+
+                ImNodes::EndNode();
             }
+            break;
+            }
+
         }
 
         for (const auto& edge : graph_.edges())
@@ -584,6 +742,9 @@ public:
                         graph_.erase_node(iter->ui.power.lhs);
                         graph_.erase_node(iter->ui.power.rhs);
                         break;
+                    //case UiNodeType::viewport:
+                    //    graph_.erase_node(iter->ui.viewport.input);
+                    //    break;
                     default:
                         break;
                     }
@@ -602,6 +763,9 @@ public:
         ImGui::Begin("output color");
         ImGui::End();
         ImGui::PopStyleColor();
+
+        //ImVec2 size = ImVec2(100, 100);
+        //ImGui::Image(static_cast<intptr_t>(1), size);
     }
 
 
@@ -699,7 +863,8 @@ private:
         output,
         sine,
         time,
-        power
+        power,
+        viewport,
     };
 
     struct UiNode
@@ -736,6 +901,11 @@ private:
             {
                 int input;
             } sine;
+
+            struct
+            {
+                int input;
+            } viewport;
 
         } ui;
     };
