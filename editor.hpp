@@ -18,10 +18,10 @@ T clamp(T x, T a, T b)
 static float current_time_seconds = 0.f;
 static bool  emulate_three_button_mouse = false;
 
-class ColorNodeEditor
+class NodeEditor
 {
 public:
-    ColorNodeEditor()
+    NodeEditor()
         : graph_(), nodes_(), root_node_id_(-1),
         minimap_location_(ImNodesMiniMapLocation_BottomRight)
     {

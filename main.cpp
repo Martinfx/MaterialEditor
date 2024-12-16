@@ -30,7 +30,7 @@ GLFWwindow* initializeWindow() {
     }
 
     glfwMakeContextCurrent(window);
-    glfwSwapInterval(1); // Povolit V-Sync
+    glfwSwapInterval(1); // Enable V-Sync
 
     if (glewInit() != GLEW_OK) {
         std::cerr << "Failed to initialize GLEW!" << std::endl;
@@ -78,7 +78,7 @@ int main() {
 
     ImNodes::CreateContext();
 
-    ColorNodeEditor editor;
+    NodeEditor editor;
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
