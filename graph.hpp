@@ -309,9 +309,12 @@ int Graph<NodeType>::insert_edge(const int from, const int to)
 template<typename NodeType>
 void Graph<NodeType>::erase_edge(const int edge_id)
 {
-    // This is a bit lazy, we find the pointer here, but we refind it when we erase the edge based
-    // on id key.
-    assert(edges_.contains(edge_id));
+    if (!edges_.contains(edge_id))
+    {
+        std::cerr << "Edge with ID " << edge_id << " does not exist.\n";
+        return;
+    }
+
     const Edge& edge = *edges_.find(edge_id);
 
     // update neighbor count

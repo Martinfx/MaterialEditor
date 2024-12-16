@@ -206,19 +206,19 @@ public:
                     ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
                 }
 
-                if (ImGui::MenuItem("Power"))
+                if (ImGui::MenuItem("power"))
                 {
                     const Node value(NodeType::value, 0.f);
                     const Node op(NodeType::power);
 
                     UiNode ui_node;
                     ui_node.type = UiNodeType::power;
-                    ui_node.ui.add.lhs = graph_.insert_node(value);
-                    ui_node.ui.add.rhs = graph_.insert_node(value);
+                    ui_node.ui.power.lhs = graph_.insert_node(value);
+                    ui_node.ui.power.rhs = graph_.insert_node(value);
                     ui_node.id = graph_.insert_node(op);
 
-                    graph_.insert_edge(ui_node.id, ui_node.ui.add.lhs);
-                    graph_.insert_edge(ui_node.id, ui_node.ui.add.rhs);
+                    graph_.insert_edge(ui_node.id, ui_node.ui.power.lhs);
+                    graph_.insert_edge(ui_node.id, ui_node.ui.power.rhs);
 
                     nodes_.push_back(ui_node);
                     ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
@@ -466,11 +466,11 @@ public:
                 ImGui::TextUnformatted("Power");
                 ImNodes::EndNodeTitleBar();
 
-                ImNodes::BeginInputAttribute(node.ui.add.lhs);
+                ImNodes::BeginInputAttribute(node.ui.power.lhs);
                 ImGui::TextUnformatted("Base");
                 ImNodes::EndInputAttribute();
 
-                ImNodes::BeginInputAttribute(node.ui.add.rhs);
+                ImNodes::BeginInputAttribute(node.ui.power.rhs);
                 ImGui::TextUnformatted("Exponent");
                 ImNodes::EndInputAttribute();
 
