@@ -12,7 +12,7 @@
 #include "node.hpp"
 #include "link.hpp"
 #include "graph.hpp"
-#include "cube.hpp"
+#include "object.hpp"
 #include "shader.hpp"
 #include "framebuffer.hpp"
 
@@ -32,11 +32,18 @@ public:
         : graph_(), nodes_(), root_node_id_(-1),
         minimap_location_(ImNodesMiniMapLocation_BottomRight)
     {
-        frameBuffer.InitFrameBuffer(800,600);
 
+        setupSphere(1.0f, 16, 16);
+        frameBuffer.InitFrameBuffer(800,600);
+        frameBUfferSphere.InitFrameBuffer(800, 600);
         mainShader.loadShader(shaderVertex, TypeShader::VERTEX_SHADER);
         mainShader.loadShader(shaderFragment, TypeShader::FRAGMENT_SHADER);
         mainShader.createShaderProgram();
+
+        // first viewer is cube.
+        frameBuffer.Bind();
+        render_to_framebuffer_cube(glm::vec3(1.0f, 0.5f, 0.31f));
+        frameBuffer.Unbind();
     }
 
 private:
@@ -44,8 +51,13 @@ private:
     unsigned int texture;
     unsigned int rbo, ebo;
     unsigned int cubeVAO, cubeVBO = 0;
+    unsigned int sphereVAO, sphereVBO = 0;
     Shader mainShader;
     FrameBuffer frameBuffer;
+    FrameBuffer frameBUfferSphere;
+
+    int m_latitudeSegments = 0;
+    int m_longitudeSegments = 0;
 
 public:
 
@@ -57,34 +69,34 @@ public:
     }
 
 
-    void render_to_cube(const glm::vec3& color, const glm::mat4& projection, const glm::mat4& view, const glm::mat4& model) {
-       // if(cubeVAO == 0) {
-            glGenVertexArrays(1, &cubeVAO);
-            glGenBuffers(1, &cubeVBO);
+    void renderCube(const glm::vec3& color, const glm::mat4& projection, const glm::mat4& view, const glm::mat4& model) {
+        // if(cubeVAO == 0) {
+        glGenVertexArrays(1, &cubeVAO);
+        glGenBuffers(1, &cubeVBO);
 
-            glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
-            glBufferData(GL_ARRAY_BUFFER, sizeof(CubeVertices), CubeVertices, GL_STATIC_DRAW);
+        glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+        glBufferData(GL_ARRAY_BUFFER, sizeof(CubeVertices), CubeVertices, GL_STATIC_DRAW);
 
-            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-            glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(CubeIndices), CubeIndices, GL_STATIC_DRAW);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(CubeIndices), CubeIndices, GL_STATIC_DRAW);
 
-            glBindVertexArray(cubeVAO);
-
-
-            glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-            glEnableVertexAttribArray(0);
+        glBindVertexArray(cubeVAO);
 
 
-            glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-            glEnableVertexAttribArray(1);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+        glEnableVertexAttribArray(0);
 
 
-            glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-            glEnableVertexAttribArray(2);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(1);
 
-            glBindBuffer(GL_ARRAY_BUFFER, 0);
-            glBindVertexArray(0);
-       // }
+
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+        glEnableVertexAttribArray(2);
+
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        glBindVertexArray(0);
+        // }
 
 
         mainShader.useShaderProgram();
@@ -97,25 +109,70 @@ public:
         glBindVertexArray(0);
     }
 
-    void render_to_framebuffer(glm::vec3 color)
+    void setupSphere(float radius, int latitudeSegments, int longitudeSegments) {
+        auto vertices = generateSphere(radius, latitudeSegments, longitudeSegments);
+
+        m_latitudeSegments = latitudeSegments;
+        m_longitudeSegments = longitudeSegments;
+
+        glGenVertexArrays(1, &sphereVAO);
+        glGenBuffers(1, &sphereVBO);
+
+        glBindVertexArray(sphereVAO);
+        glBindBuffer(GL_ARRAY_BUFFER, sphereVBO);
+        glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(Vertex), &vertices[0], GL_STATIC_DRAW);
+
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)0);                     // Pozice
+        glEnableVertexAttribArray(0);
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(3 * sizeof(float)));  // Normály
+        glEnableVertexAttribArray(1);
+        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)(6 * sizeof(float)));  // UV
+        glEnableVertexAttribArray(2);
+
+        glBindVertexArray(0);
+
+
+    }
+
+    void renderSphere(const glm::mat4& projection, const glm::mat4& view, const glm::mat4& model, const glm::vec3& color) {
+        mainShader.useShaderProgram();
+        glUniformMatrix4fv(glGetUniformLocation(mainShader.getShaderProgram(), "projection"), 1, GL_FALSE, &projection[0][0]);
+        glUniformMatrix4fv(glGetUniformLocation(mainShader.getShaderProgram(), "view"), 1, GL_FALSE, &view[0][0]);
+        glUniformMatrix4fv(glGetUniformLocation(mainShader.getShaderProgram(), "model"), 1, GL_FALSE, &model[0][0]);
+        glUniform3fv(glGetUniformLocation(mainShader.getShaderProgram(), "color"), 1, &color[0]);
+
+        glBindVertexArray(sphereVAO);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, (m_latitudeSegments + 1) * (m_longitudeSegments + 1));
+        glBindVertexArray(0);
+    }
+
+    void render_to_framebuffer_cube(glm::vec3 color)
     {
-        //frameBuffer.Bind();
         glViewport(0, 0, 800, 600);
         glEnable(GL_DEPTH_TEST);
-
 
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
+        glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
+        glm::mat4 view = glm::lookAt(glm::vec3(3.0f, 3.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+        glm::mat4 model = glm::mat4(1.0f);
+        renderCube(color, projection, view, model);
+    }
+
+    void render_to_framebuffer_sphere(glm::vec3 color) {
+
+        glViewport(0, 0, 800, 600);
+        glEnable(GL_DEPTH_TEST);
+
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
         glm::mat4 view = glm::lookAt(glm::vec3(3.0f, 3.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         glm::mat4 model = glm::mat4(1.0f);
 
-
-        render_to_cube(color, projection, view, model);
-
-        //frameBuffer.Unbind();
+        renderSphere(projection, view, model, color);
     }
 
     void show()
@@ -308,18 +365,34 @@ public:
                     ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
                 }
 
-                if (ImGui::MenuItem("viewport"))
+                if (ImGui::MenuItem("cube viewport"))
                 {
                     const Node value(NodeType::value, 0.f);
-                    const Node op(NodeType::viewport);
+                    const Node op(NodeType::cubeviewport);
 
                     UiNode ui_node;
-                    ui_node.type = UiNodeType::viewport;
-                    ui_node.ui.viewport.input = graph_.insert_node(value);
+                    ui_node.type = UiNodeType::cubeviewport;
+                    ui_node.ui.cubeviewport.input = graph_.insert_node(value);
                     ui_node.id = graph_.insert_node(op);
                     // graph_.insert_edge(ui_node.id, ui_node.ui.viewport.input);
                     nodes_.push_back(ui_node);
-                    std::cout << "Viewport node created with ID: " << ui_node.id << std::endl;
+                    std::cout << "cube viewport node created with ID: " << ui_node.id << std::endl;
+                    ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
+                }
+
+
+                if (ImGui::MenuItem("sphere viewport"))
+                {
+                    const Node value(NodeType::value, 0.f);
+                    const Node op(NodeType::spherevieport);
+
+                    UiNode ui_node;
+                    ui_node.type = UiNodeType::sphereviewport;
+                    ui_node.ui.cubeviewport.input = graph_.insert_node(value);
+                    ui_node.id = graph_.insert_node(op);
+                    // graph_.insert_edge(ui_node.id, ui_node.ui.viewport.input);
+                    nodes_.push_back(ui_node);
+                    std::cout << "Sphere viewport node created with ID: " << ui_node.id << std::endl;
                     ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
                 }
 
@@ -580,32 +653,60 @@ public:
                 ImNodes::EndNode();
             }
             break;
-            case UiNodeType::viewport:
+            case UiNodeType::cubeviewport:
             {
                 ImNodes::BeginNode(node.id);
 
                 ImNodes::BeginNodeTitleBar();
-                ImGui::TextUnformatted("3D Viewport");
+                ImGui::TextUnformatted("Cube Viewport");
                 ImNodes::EndNodeTitleBar();
 
-                ImNodes::BeginInputAttribute(node.ui.viewport.input);
+                ImNodes::BeginInputAttribute(node.ui.cubeviewport.input);
                 ImGui::TextUnformatted("Input");
                 ImNodes::EndInputAttribute();
 
                 glm::vec3 color(1.0f, 1.0f, 1.0f);
-                if (graph_.num_edges_from_node(node.ui.viewport.input) > 0)
+                if (graph_.num_edges_from_node(node.ui.cubeviewport.input) > 0)
                 {
-                    int input_id = graph_.node(node.ui.viewport.input).value;
+                    int input_id = graph_.node(node.ui.cubeviewport.input).value;
                     color.r = clamp(graph_.node(input_id).value, 0.0f, 1.0f);
                     color.g = clamp(graph_.node(input_id + 1).value, 0.0f, 1.0f);
                     color.b = clamp(graph_.node(input_id + 2).value, 0.0f, 1.0f);
                 }
 
                 frameBuffer.Bind();
-                render_to_framebuffer(color);
+                render_to_framebuffer_cube(color);
                 //frameBuffer.RescaleFrameBuffer(50,50);
                 ImGui::Image((ImTextureID)frameBuffer.getFrameTexture(), ImVec2(200, 200));
                 frameBuffer.Unbind();
+                ImNodes::EndNode();
+            }
+            break;
+            case UiNodeType::sphereviewport:
+            {
+                ImNodes::BeginNode(node.id);
+
+                ImNodes::BeginNodeTitleBar();
+                ImGui::TextUnformatted("Sphere Viewport");
+                ImNodes::EndNodeTitleBar();
+
+                ImNodes::BeginInputAttribute(node.ui.sphereviewport.input);
+                ImGui::TextUnformatted("Input");
+                ImNodes::EndInputAttribute();
+
+                glm::vec3 color(1.0f, 1.0f, 1.0f);
+                if (graph_.num_edges_from_node(node.ui.sphereviewport.input) > 0)
+                {
+                    int input_id = graph_.node(node.ui.sphereviewport.input).value;
+                    color.r = clamp(graph_.node(input_id).value, 0.0f, 1.0f);
+                    color.g = clamp(graph_.node(input_id + 1).value, 0.0f, 1.0f);
+                    color.b = clamp(graph_.node(input_id + 2).value, 0.0f, 1.0f);
+                }
+
+                frameBUfferSphere.Bind();
+                render_to_framebuffer_sphere(color);
+                ImGui::Image((ImTextureID)frameBUfferSphere.getFrameTexture(), ImVec2(200, 200));
+                frameBUfferSphere.Unbind();
                 ImNodes::EndNode();
             }
             break;
@@ -735,8 +836,12 @@ public:
         ImGui::End();
         ImGui::PopStyleColor();
 
-        //ImVec2 size = ImVec2(100, 100);
-        //ImGui::Image(static_cast<intptr_t>(1), size);
+        //ImGui::PushStyleColor(ImGuiCol_WindowBg, color);
+        ImGui::Begin("3d view");
+        ImVec2 size = ImVec2(200, 200);
+        //frameBuffer.RescaleFrameBuffer(300,300);
+        ImGui::Image(ImTextureID(frameBuffer.getFrameTexture()), size);
+        ImGui::End();
     }
 
 
@@ -835,7 +940,8 @@ private:
         sine,
         time,
         power,
-        viewport,
+        cubeviewport,
+        sphereviewport
     };
 
     struct UiNode
@@ -876,7 +982,12 @@ private:
             struct
             {
                 int input;
-            } viewport;
+            } cubeviewport;
+
+            struct
+            {
+                int input;
+            } sphereviewport;
 
         } ui;
     };
@@ -885,4 +996,5 @@ private:
     std::vector<UiNode>    nodes_;
     int                    root_node_id_;
     ImNodesMiniMapLocation minimap_location_;
+    bool showSphere;
 };

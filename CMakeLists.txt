@@ -23,7 +23,7 @@ add_executable(materialeditor main.cpp
     link.hpp
     editor.hpp
     graph.hpp
-    cube.hpp
+    object.hpp
     shader.hpp
     framebuffer.hpp)
 

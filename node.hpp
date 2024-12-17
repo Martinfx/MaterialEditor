@@ -13,7 +13,8 @@ enum class NodeType
     time,
     value,
     power,
-    viewport
+    cubeviewport,
+    spherevieport
 };
 
 struct Node
