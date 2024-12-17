@@ -32,7 +32,7 @@ public:
         : graph_(), nodes_(), root_node_id_(-1),
         minimap_location_(ImNodesMiniMapLocation_BottomRight)
     {
-        frameBuffer.InitFrameBuffer(800,600);
+        //frameBuffer.InitFrameBuffer(800,600);
 
         mainShader.loadShader(shaderVertex, TypeShader::VERTEX_SHADER);
         mainShader.loadShader(shaderFragment, TypeShader::FRAGMENT_SHADER);
@@ -40,6 +40,7 @@ public:
     }
 
 private:
+
     unsigned int fbo;      // Framebuffer Object
     unsigned int texture;
     unsigned int rbo, ebo;
@@ -49,6 +50,25 @@ private:
 
 public:
 
+    struct Viewport
+    {
+        int id;
+        FrameBuffer framebuffer;
+        glm::mat4 projection;
+        glm::mat4 view;
+        glm::mat4 model;
+        glm::vec3 color;
+
+        Viewport(int w, int h, int unique_id)
+            : id(unique_id), framebuffer(), color(1.0f, 1.0f, 1.0f)
+        {
+            framebuffer.InitFrameBuffer(w, h);
+            projection = glm::perspective(glm::radians(45.0f), w / (float)h, 0.1f, 100.0f);
+            view = glm::lookAt(glm::vec3(3.0f, 3.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+            model = glm::mat4(1.0f);
+        }
+    };
+
     uint32_t getTicks() {
         static const auto startTime = std::chrono::steady_clock::now();
         auto now = std::chrono::steady_clock::now();
@@ -57,7 +77,7 @@ public:
     }
 
 
-    void render_to_cube(const glm::vec3& color, const glm::mat4& projection, const glm::mat4& view, const glm::mat4& model) {
+    void renderCube(const glm::vec3& color, const glm::mat4& projection, const glm::mat4& view, const glm::mat4& model) {
        // if(cubeVAO == 0) {
             glGenVertexArrays(1, &cubeVAO);
             glGenBuffers(1, &cubeVBO);
@@ -97,7 +117,7 @@ public:
         glBindVertexArray(0);
     }
 
-    void render_to_framebuffer(glm::vec3 color)
+/*    void render_to_framebuffer(glm::vec3 color)
     {
         //frameBuffer.Bind();
         glViewport(0, 0, 800, 600);
@@ -116,6 +136,25 @@ public:
         render_to_cube(color, projection, view, model);
 
         //frameBuffer.Unbind();
+    }*/
+
+    void renderViewport(Viewport& vp , glm::vec3 &color)
+    {
+        vp.framebuffer.Bind();
+        glViewport(0, 0, 800, 600);
+        glEnable(GL_DEPTH_TEST);
+
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        renderCube(color, vp.projection, vp.view, vp.model);
+
+        vp.framebuffer.Unbind();
+    }
+
+    void createViewport(int width, int height)
+    {
+        viewports.emplace_back(width, height, nextViewportId++);
     }
 
     void show()
@@ -320,6 +359,8 @@ public:
                     // graph_.insert_edge(ui_node.id, ui_node.ui.viewport.input);
                     nodes_.push_back(ui_node);
                     std::cout << "Viewport node created with ID: " << ui_node.id << std::endl;
+                    createViewport(800, 600);
+                    std::cout << "Create viewprot." << std::endl;
                     ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
                 }
 
@@ -601,11 +642,18 @@ public:
                     color.b = clamp(graph_.node(input_id + 2).value, 0.0f, 1.0f);
                 }
 
-                frameBuffer.Bind();
+               /* frameBuffer.Bind();
                 render_to_framebuffer(color);
                 //frameBuffer.RescaleFrameBuffer(50,50);
                 ImGui::Image((ImTextureID)frameBuffer.getFrameTexture(), ImVec2(200, 200));
-                frameBuffer.Unbind();
+                frameBuffer.Unbind();*/
+                for (auto& vp : viewports)
+                {
+                    renderViewport(vp, color);
+                    ImGui::Text("Viewport ID: %d", vp.id);
+                    ImGui::Image((ImTextureID)vp.framebuffer.getFrameTexture(), ImVec2(200, 200));
+                }
+
                 ImNodes::EndNode();
             }
             break;
@@ -881,6 +929,8 @@ private:
         } ui;
     };
 
+    std::vector<Viewport> viewports;
+    int nextViewportId = 1;
     Graph<Node>            graph_;
     std::vector<UiNode>    nodes_;
     int                    root_node_id_;
