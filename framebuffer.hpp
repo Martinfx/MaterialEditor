@@ -15,17 +15,23 @@ public:
     void RescaleFrameBuffer(float width, float height);
     void Bind() const;
     void Unbind() const;
+    int GetWidth() { return width; }
+    int GetHeigth() { return height; }
+
 private:
     unsigned int fbo;
     unsigned int texture;
     unsigned int rbo;
+    int width;
+    int height;
 };
 
-FrameBuffer::FrameBuffer() : fbo(0), texture(0), rbo(0) {
+FrameBuffer::FrameBuffer() :
+    fbo(0), texture(0), rbo(0), width(0), height(0) {
 
 }
 
-FrameBuffer::FrameBuffer(float width, float height)
+FrameBuffer::FrameBuffer(float width, float height) : fbo(0), texture(0), rbo(0)
 {
     glGenFramebuffers(1, &fbo);
     glBindFramebuffer(GL_FRAMEBUFFER, fbo);
@@ -83,6 +89,9 @@ void FrameBuffer::InitFrameBuffer(float width, float height) {
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindTexture(GL_TEXTURE_2D, 0);
     glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+    this->width = width;
+    this->height = height;
 }
 
 unsigned int FrameBuffer::getFrameTexture()

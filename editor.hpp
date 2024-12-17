@@ -374,7 +374,7 @@ public:
                     ui_node.type = UiNodeType::cubeviewport;
                     ui_node.ui.cubeviewport.input = graph_.insert_node(value);
                     ui_node.id = graph_.insert_node(op);
-                    // graph_.insert_edge(ui_node.id, ui_node.ui.viewport.input);
+                    graph_.insert_edge(ui_node.id, ui_node.ui.cubeviewport.input);
                     nodes_.push_back(ui_node);
                     std::cout << "cube viewport node created with ID: " << ui_node.id << std::endl;
                     ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
@@ -390,7 +390,7 @@ public:
                     ui_node.type = UiNodeType::sphereviewport;
                     ui_node.ui.cubeviewport.input = graph_.insert_node(value);
                     ui_node.id = graph_.insert_node(op);
-                    // graph_.insert_edge(ui_node.id, ui_node.ui.viewport.input);
+                    graph_.insert_edge(ui_node.id, ui_node.ui.sphereviewport.input);
                     nodes_.push_back(ui_node);
                     std::cout << "Sphere viewport node created with ID: " << ui_node.id << std::endl;
                     ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
@@ -836,11 +836,9 @@ public:
         ImGui::End();
         ImGui::PopStyleColor();
 
-        //ImGui::PushStyleColor(ImGuiCol_WindowBg, color);
         ImGui::Begin("3d view");
-        ImVec2 size = ImVec2(200, 200);
-        //frameBuffer.RescaleFrameBuffer(300,300);
-        ImGui::Image(ImTextureID(frameBuffer.getFrameTexture()), size);
+        ImVec2 windowSize = ImGui::GetContentRegionAvail();
+        ImGui::Image(ImTextureID(frameBuffer.getFrameTexture()), windowSize);
         ImGui::End();
     }
 
