@@ -1,5 +1,5 @@
 # Node Editor
-![editor3](https://github.com/user-attachments/assets/9ca5da35-86d2-4cd6-8319-de3f828a28e3)
+![editor4](https://github.com/user-attachments/assets/f8795e75-5788-4e2d-ac25-2f72ec651e5e)
 
 
 
