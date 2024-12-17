@@ -59,6 +59,9 @@ private:
     int m_latitudeSegments = 0;
     int m_longitudeSegments = 0;
 
+    float rotationY = 0;
+    float rotationX = 0;
+
 public:
 
     uint32_t getTicks() {
@@ -157,6 +160,8 @@ public:
         glm::mat4 projection = glm::perspective(glm::radians(45.0f), 800.0f / 600.0f, 0.1f, 100.0f);
         glm::mat4 view = glm::lookAt(glm::vec3(3.0f, 3.0f, 3.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
         glm::mat4 model = glm::mat4(1.0f);
+        model = glm::rotate(model, rotationY, glm::vec3(0.0f, 1.0f, 0.0f));
+        model = glm::rotate(model, rotationX, glm::vec3(1.0f, 0.0f, 0.0f));
         renderCube(color, projection, view, model);
     }
 
@@ -175,8 +180,21 @@ public:
         renderSphere(projection, view, model, color);
     }
 
+    void handleMouseInput()
+    {
+        if (ImGui::IsMouseDragging(ImGuiMouseButton_Right))
+        {
+            ImVec2 mouseDelta = ImGui::GetIO().MouseDelta;
+            rotationY += mouseDelta.x * 0.005f;
+            rotationX += mouseDelta.y * 0.005f;
+            rotationX = glm::clamp(rotationX, -glm::half_pi<float>(), glm::half_pi<float>());
+        }
+    }
+
     void show()
     {
+        handleMouseInput();
+
         // Update timer context
         current_time_seconds = 0.001f *  getTicks();
 
