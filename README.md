@@ -1,6 +1,6 @@
-# Node Editor
-![editor4](https://github.com/user-attachments/assets/f8795e75-5788-4e2d-ac25-2f72ec651e5e)
 
+# Node Editor
+![editor5](https://github.com/user-attachments/assets/b1379222-fdab-4024-8238-a91e203b98a1)
 
 
 ## Overview
