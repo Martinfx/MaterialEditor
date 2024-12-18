@@ -200,6 +200,8 @@ public:
     int  insert_edge(int from, int to);
     void erase_edge(int edge_id);
 
+    bool node_exists(const int id) const;
+
 private:
     int current_id_;
     // These contains map to the node id
@@ -245,6 +247,12 @@ size_t Graph<NodeType>::num_edges_from_node(const int id) const
     auto iter = edges_from_node_.find(id);
     assert(iter != edges_from_node_.end());
     return *iter;
+}
+
+template<typename NodeType>
+bool Graph<NodeType>::node_exists(const int id) const
+{
+    return nodes_.contains(id);
 }
 
 template<typename NodeType>
