@@ -4,6 +4,8 @@
 #include <sstream>
 #include <algorithm>
 #include <unordered_set>
+#include <nlohmann/json.hpp>
+#include <fstream>
 
 #include <imgui.h>
 #include <glm/glm.hpp>
@@ -191,6 +193,151 @@ public:
         }
     }
 
+    void save_project(const std::string& filename)
+    {
+        nlohmann::json j;
+
+        // Uložení uzlů
+        j["nodes"] =  nlohmann::json::array();
+        for (const auto& node : nodes_)
+        {
+            nlohmann::json  node_json;
+            node_json["id"] = node.id;
+            node_json["type"] = static_cast<int>(node.type);
+
+            switch (node.type)
+            {
+            case UiNodeType::add:
+                node_json["lhs"] = node.ui.add.lhs;
+                node_json["rhs"] = node.ui.add.rhs;
+                break;
+            case UiNodeType::multiply:
+                node_json["lhs"] = node.ui.multiply.lhs;
+                node_json["rhs"] = node.ui.multiply.rhs;
+                break;
+            case UiNodeType::power:
+                node_json["lhs"] = node.ui.power.lhs;
+                node_json["rhs"] = node.ui.power.rhs;
+                break;
+            case UiNodeType::output:
+                node_json["r"] = node.ui.output.r;
+                node_json["g"] = node.ui.output.g;
+                node_json["b"] = node.ui.output.b;
+                break;
+            case UiNodeType::sine:
+                node_json["input"] = node.ui.sine.input;
+                break;
+            case UiNodeType::cubeviewport:
+                node_json["input"] = node.ui.cubeviewport.input;
+                break;
+            case UiNodeType::sphereviewport:
+                node_json["input"] = node.ui.sphereviewport.input;
+                break;
+            default:
+                break;
+            }
+
+            j["nodes"].push_back(node_json);
+        }
+
+        j["edges"] = nlohmann::json ::array();
+        for (const auto& edge : graph_.edges())
+        {
+            nlohmann::json  edge_json;
+            edge_json["id"] = edge.id;
+            edge_json["from"] = edge.from;
+            edge_json["to"] = edge.to;
+            j["edges"].push_back(edge_json);
+        }
+
+        std::ofstream file(filename);
+        if (file.is_open())
+        {
+            file << j.dump(4);
+            file.close();
+            std::cout << "Project save to: " << filename << std::endl;
+        }
+        else
+        {
+            std::cerr << "save file failed!" << std::endl;
+        }
+    }
+
+
+    void load_project(const std::string& filename)
+    {
+    std::ifstream file(filename);
+        if (!file.is_open())
+        {
+            std::cerr << "read file failed!" << std::endl;
+            return;
+        }
+
+        nlohmann::json  j;
+        file >> j;
+
+        nodes_.clear();
+        graph_ = Graph<Node>();
+
+        for (const auto& node_json : j["nodes"])
+        {
+            UiNode ui_node;
+            ui_node.id = node_json["id"];
+            ui_node.type = static_cast<UiNodeType>(node_json["type"]);
+
+            switch (ui_node.type)
+            {
+            case UiNodeType::add:
+                ui_node.ui.add.lhs = node_json["lhs"];
+                ui_node.ui.add.rhs = node_json["rhs"];
+                break;
+            case UiNodeType::multiply:
+                ui_node.ui.multiply.lhs = node_json["lhs"];
+                ui_node.ui.multiply.rhs = node_json["rhs"];
+                break;
+            case UiNodeType::power:
+                ui_node.ui.power.lhs = node_json["lhs"];
+                ui_node.ui.power.rhs = node_json["rhs"];
+                break;
+            case UiNodeType::output:
+                ui_node.ui.output.r = node_json["r"];
+                ui_node.ui.output.g = node_json["g"];
+                ui_node.ui.output.b = node_json["b"];
+                break;
+            case UiNodeType::sine:
+                ui_node.ui.sine.input = node_json["input"];
+                break;
+            case UiNodeType::cubeviewport:
+                ui_node.ui.cubeviewport.input = node_json["input"];
+                break;
+            case UiNodeType::sphereviewport:
+                ui_node.ui.sphereviewport.input = node_json["input"];
+                break;
+            default:
+                break;
+            }
+
+            nodes_.push_back(ui_node);
+        }
+
+        for (const auto& edge_json : j["edges"])
+        {
+            int from = edge_json["from"];
+            int to = edge_json["to"];
+
+            if (!graph_.node_exists(from) || !graph_.node_exists(to))
+            {
+                std::cerr << "Error: Invalid edge. Missing nodes: " << from << " or " << to << std::endl;
+                continue; // Přeskočte chybnou hranu
+            }
+
+            graph_.insert_edge(from, to);
+        }
+
+        std::cout << "Project save to file!" << filename << std::endl;
+    }
+
+
     void show()
     {
         handleMouseInput();
@@ -205,6 +352,20 @@ public:
 
         if (ImGui::BeginMenuBar())
         {
+
+            if (ImGui::BeginMenu("File"))
+            {
+                if (ImGui::MenuItem("Save"))
+                {
+                    save_project("project.json");
+                }
+                if (ImGui::MenuItem("Load"))
+                {
+                    load_project("project.json");
+                }
+                ImGui::EndMenu();
+            }
+
             if (ImGui::BeginMenu("Mini-map"))
             {
                 const char* names[] = {

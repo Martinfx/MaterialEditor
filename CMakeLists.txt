@@ -14,6 +14,7 @@ include_directories(${IMGUI_INCLUDE_DIRS})
 link_libraries(${IMGUI_LIBRARIES})
 find_package(glfw3 REQUIRED)
 find_package(OpenGL REQUIRED)
+find_package(nlohmann_json REQUIRED)
 include_directories(${OPENGL_INCLUDE_DIR})
 add_subdirectory("3rdparty/imnodes")
 #add_subdirectory("3rdparty/imgui")
@@ -27,7 +28,7 @@ add_executable(materialeditor main.cpp
     shader.hpp
     framebuffer.hpp)
 
-target_link_libraries(${PROJECT_NAME} ${OPENGL_gl_LIBRARY} ${GLFW_LIBRARIES} ${IMGUI_LIBRARIES} imnodes glfw imgui::imgui OpenGL::GL)
+target_link_libraries(${PROJECT_NAME} ${OPENGL_gl_LIBRARY} ${GLFW_LIBRARIES} ${IMGUI_LIBRARIES} imnodes glfw imgui::imgui OpenGL::GL nlohmann_json::nlohmann_json)
 
 include(GNUInstallDirs)
 install(TARGETS materialeditor
