@@ -10,6 +10,7 @@
 #include <imgui.h>
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
+#include "3rdparty/tinyfiledialogs/include/tinyfiledialogs/tinyfiledialogs.h"
 
 #include "node.hpp"
 #include "link.hpp"
@@ -17,6 +18,7 @@
 #include "object.hpp"
 #include "shader.hpp"
 #include "framebuffer.hpp"
+#include "texture.hpp"
 
 template<class T>
 T clamp(T x, T a, T b)
@@ -57,6 +59,7 @@ private:
     Shader mainShader;
     FrameBuffer frameBuffer;
     FrameBuffer frameBUfferSphere;
+    TextureManager textureManager;
 
     int m_latitudeSegments = 0;
     int m_longitudeSegments = 0;
@@ -328,10 +331,11 @@ public:
             if (!graph_.node_exists(from) || !graph_.node_exists(to))
             {
                 std::cerr << "Error: Invalid edge. Missing nodes: " << from << " or " << to << std::endl;
-                continue; // Přeskočte chybnou hranu
-            }
+                continue;
+            }else {
 
-            graph_.insert_edge(from, to);
+                graph_.insert_edge(from, to);
+            }
         }
 
         std::cout << "Project save to file!" << filename << std::endl;
@@ -575,12 +579,32 @@ public:
                     ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
                 }
 
+                if (ImGui::MenuItem("texture"))
+                {
+                    const Node value(NodeType::value, 0.f); // Placeholder input node
+                    const Node op(NodeType::texture);      // Texture node type
+
+                    UiNode ui_node;
+                    ui_node.type = UiNodeType::texture;
+
+                    // Initialize texture details
+                    ui_node.ui.texture.textureid = 0; // Default texture ID
+                    ui_node.ui.texture.path = nullptr; // No path initially
+
+                    ui_node.id = graph_.insert_node(op);
+
+                    // Set node screen position and add to nodes list
+                    ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
+                    nodes_.push_back(ui_node);
+                }
+
+
                 ImGui::EndPopup();
             }
             ImGui::PopStyleVar();
         }
 
-        for (const UiNode& node : nodes_)
+        for (UiNode& node : nodes_)
         {
             switch (node.type)
             {
@@ -889,6 +913,64 @@ public:
                 ImNodes::EndNode();
             }
             break;
+            case UiNodeType::texture:
+            {
+                ImNodes::BeginNode(node.id);
+
+                ImNodes::BeginNodeTitleBar();
+                ImGui::TextUnformatted("Texture Node");
+                ImNodes::EndNodeTitleBar();
+
+                // Input for texture path
+                //static char file_path[20] = "";
+                //ImGui::InputText("Path", file_path, sizeof(file_path));
+
+                if (ImGui::Button("Select Texture"))
+                {
+                    const char* file_filters[] = { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.tga" };
+                    const char* selected_file = tinyfd_openFileDialog(
+                        "Select Texture File",       // Dialog title
+                        "",                          // Default path
+                        5,                           // Number of filters
+                        file_filters,                // Filters
+                        "Image Files (*.png, *.jpg)",// Filter description
+                        0                            // Allow multiple selection
+                        );
+
+                    if (node.ui.texture.path)
+                    {
+                        free(node.ui.texture.path);
+                    }
+
+                    if (selected_file)
+                    {
+                        // Free previous memory if path was already set
+                        if (node.ui.texture.path)
+                        {
+                            free(node.ui.texture.path);
+                        }
+
+                        // Allocate and copy the new file path
+                        node.ui.texture.path = strdup(selected_file);
+
+                        // Load the texture using the new path
+                        node.ui.texture.textureid = textureManager.loadTexture(node.ui.texture.path);
+                    }
+                }
+
+                // Render Texture Preview
+                if (node.ui.texture.textureid != 0)
+                {
+                    ImGui::Image((ImTextureID)node.ui.texture.textureid, ImVec2(100, 100));
+                }
+
+                ImNodes::BeginOutputAttribute(node.id);
+                ImGui::TextUnformatted("Output");
+                ImNodes::EndOutputAttribute();
+
+                ImNodes::EndNode();
+            }
+            break;
             }
 
         }
@@ -993,9 +1075,16 @@ public:
                         graph_.erase_node(iter->ui.power.lhs);
                         graph_.erase_node(iter->ui.power.rhs);
                         break;
-                    //case UiNodeType::viewport:
-                    //    graph_.erase_node(iter->ui.viewport.input);
-                    //    break;
+                    case UiNodeType::cubeviewport:
+                        graph_.erase_node(iter->ui.cubeviewport.input);
+                        break;
+                    case UiNodeType::sphereviewport:
+                        graph_.erase_node(iter->ui.sphereviewport.input);
+                        break;
+                    case UiNodeType::texture:
+                        graph_.erase_node(iter->ui.texture.textureid);
+                        break;
+
                     default:
                         break;
                     }
@@ -1087,7 +1176,12 @@ public:
                 value_stack.pop();
                 value_stack.push(std::pow(lhs, rhs));
             }
-
+            break;
+            case NodeType::texture:
+            {
+                // Push the texture ID onto the evaluation stack
+                //value_stack.push(static_cast<float>(node.ui.texture.textureid));
+            }
             break;
             default:
                 break;
@@ -1118,7 +1212,8 @@ private:
         time,
         power,
         cubeviewport,
-        sphereviewport
+        sphereviewport,
+        texture,
     };
 
     struct UiNode
@@ -1165,6 +1260,12 @@ private:
             {
                 int input;
             } sphereviewport;
+
+            struct
+            {
+                int textureid;
+                char* path;
+            }texture;
 
         } ui;
     };

@@ -14,7 +14,8 @@ enum class NodeType
     value,
     power,
     cubeviewport,
-    spherevieport
+    spherevieport,
+    texture
 };
 
 struct Node
