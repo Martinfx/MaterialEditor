@@ -1,19 +1,17 @@
 #pragma once
 
 #include <vector>
-#include <sstream>
 #include <algorithm>
-#include <unordered_set>
 #include <nlohmann/json.hpp>
 #include <fstream>
 
 #include <imgui.h>
+#include <imnodes.h>
 #include <glm/glm.hpp>
 #include <glm/ext.hpp>
 #include "3rdparty/tinyfiledialogs/include/tinyfiledialogs/tinyfiledialogs.h"
 
 #include "node.hpp"
-#include "link.hpp"
 #include "graph.hpp"
 #include "object.hpp"
 #include "shader.hpp"
@@ -46,7 +44,7 @@ public:
 
         // first viewer is cube.
         frameBuffer.Bind();
-        render_to_framebuffer_cube(glm::vec3(1.0f, 0.5f, 0.31f));
+        render_to_framebuffer_cube(glm::vec3(1.0f, 0.5f, 0.31f), -1);
         frameBuffer.Unbind();
     }
 
@@ -66,6 +64,79 @@ private:
 
     float rotationY = 0;
     float rotationX = 0;
+private:
+    enum class UiNodeType
+    {
+        add,
+        multiply,
+        output,
+        sine,
+        time,
+        power,
+        cubeviewport,
+        sphereviewport,
+        texture,
+    };
+
+    struct UiNode
+    {
+        UiNodeType type;
+        // The identifying id of the ui node. For add, multiply, sine, and time
+        // this is the "operation" node id. The additional input nodes are
+        // stored in the structs.
+        int id;
+
+        union
+        {
+            struct
+            {
+                int lhs, rhs;
+            } add;
+
+            struct
+            {
+                int lhs, rhs;
+            } multiply;
+
+            struct
+            {
+                int lhs, rhs;
+            } power;
+
+            struct
+            {
+                int r, g, b;
+            } output;
+
+            struct
+            {
+                int input;
+            } sine;
+
+            struct
+            {
+                int input;
+            } cubeviewport;
+
+            struct
+            {
+                int input;
+            } sphereviewport;
+
+            struct
+            {
+                int id;
+                char* path;
+            }texture;
+
+        } ui;
+    };
+
+    Graph<Node>            graph_;
+    std::vector<UiNode>    nodes_;
+    int                    root_node_id_;
+    ImNodesMiniMapLocation minimap_location_;
+    bool showSphere;
 
 public:
 
@@ -77,7 +148,7 @@ public:
     }
 
 
-    void renderCube(const glm::vec3& color, const glm::mat4& projection, const glm::mat4& view, const glm::mat4& model) {
+    void renderCube(const glm::vec3& color, const glm::mat4& projection, const glm::mat4& view, const glm::mat4& model, int textureID) {
         // if(cubeVAO == 0) {
         glGenVertexArrays(1, &cubeVAO);
         glGenBuffers(1, &cubeVBO);
@@ -106,15 +177,22 @@ public:
         glBindVertexArray(0);
         // }
 
-
         mainShader.useShaderProgram();
+
         glUniformMatrix4fv(glGetUniformLocation(mainShader.getShaderProgram(), "projection"), 1, GL_FALSE, &projection[0][0]);
         glUniformMatrix4fv(glGetUniformLocation(mainShader.getShaderProgram(), "view"), 1, GL_FALSE, &view[0][0]);
         glUniformMatrix4fv(glGetUniformLocation(mainShader.getShaderProgram(), "model"), 1, GL_FALSE, &model[0][0]);
+
         glUniform3fv(glGetUniformLocation(mainShader.getShaderProgram(), "color"), 1, &color[0]);
+
+        //glActiveTexture(GL_TEXTURE0);
+        //glBindTexture(GL_TEXTURE_2D, textureID);
+        glUniform1i(glGetUniformLocation(mainShader.getShaderProgram(), "textureSampler"), 0);
+
         glBindVertexArray(cubeVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
+
     }
 
     void setupSphere(float radius, int latitudeSegments, int longitudeSegments) {
@@ -138,8 +216,6 @@ public:
         glEnableVertexAttribArray(2);
 
         glBindVertexArray(0);
-
-
     }
 
     void renderSphere(const glm::mat4& projection, const glm::mat4& view, const glm::mat4& model, const glm::vec3& color) {
@@ -154,7 +230,7 @@ public:
         glBindVertexArray(0);
     }
 
-    void render_to_framebuffer_cube(glm::vec3 color)
+    void render_to_framebuffer_cube(glm::vec3 color, int textureID)
     {
         glViewport(0, 0, 800, 600);
         glEnable(GL_DEPTH_TEST);
@@ -167,7 +243,7 @@ public:
         glm::mat4 model = glm::mat4(1.0f);
         model = glm::rotate(model, rotationY, glm::vec3(0.0f, 1.0f, 0.0f));
         model = glm::rotate(model, rotationX, glm::vec3(1.0f, 0.0f, 0.0f));
-        renderCube(color, projection, view, model);
+        renderCube(color, projection, view, model, textureID);
     }
 
     void render_to_framebuffer_sphere(glm::vec3 color) {
@@ -199,8 +275,6 @@ public:
     void save_project(const std::string& filename)
     {
         nlohmann::json j;
-
-        // Uložení uzlů
         j["nodes"] =  nlohmann::json::array();
         for (const auto& node : nodes_)
         {
@@ -269,7 +343,7 @@ public:
 
     void load_project(const std::string& filename)
     {
-    std::ifstream file(filename);
+        std::ifstream file(filename);
         if (!file.is_open())
         {
             std::cerr << "read file failed!" << std::endl;
@@ -579,23 +653,30 @@ public:
                     ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
                 }
 
-                if (ImGui::MenuItem("texture"))
+                if (ImGui::MenuItem("texture "))
                 {
-                    const Node value(NodeType::value, 0.f); // Placeholder input node
-                    const Node op(NodeType::texture);      // Texture node type
+                    const Node textureNode(NodeType::texture);
 
                     UiNode ui_node;
                     ui_node.type = UiNodeType::texture;
+                    ui_node.ui.texture.id = -1;
+                    ui_node.ui.texture.path = nullptr;
 
-                    // Initialize texture details
-                    ui_node.ui.texture.textureid = 0; // Default texture ID
-                    ui_node.ui.texture.path = nullptr; // No path initially
+                    const char* file_filters[] = { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.tga" };
+                    const char* selected_file = tinyfd_openFileDialog(
+                        "Select Texture File", "", 5, file_filters, "Image Files (*.png, *.jpg)", 0);
 
-                    ui_node.id = graph_.insert_node(op);
+                    if (selected_file)
+                    {
+                        ui_node.ui.texture.path = strdup(selected_file);
+                        ui_node.ui.texture.id = textureManager.loadTexture(selected_file);
+                    }
 
-                    // Set node screen position and add to nodes list
-                    ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
+                    ui_node.id = graph_.insert_node(textureNode);
                     nodes_.push_back(ui_node);
+
+                    const ImVec2 click_pos = ImGui::GetMousePosOnOpeningCurrentPopup();
+                    ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
                 }
 
 
@@ -869,6 +950,7 @@ public:
                 ImNodes::EndInputAttribute();
 
                 glm::vec3 color(1.0f, 1.0f, 1.0f);
+                int textureID = 0;
                 if (graph_.num_edges_from_node(node.ui.cubeviewport.input) > 0)
                 {
                     int input_id = graph_.node(node.ui.cubeviewport.input).value;
@@ -877,10 +959,11 @@ public:
                     color.b = clamp(graph_.node(input_id + 2).value, 0.0f, 1.0f);
                 }
 
+                textureID = node.ui.texture.id;
+
                 frameBuffer.Bind();
-                render_to_framebuffer_cube(color);
-                //frameBuffer.RescaleFrameBuffer(50,50);
-                ImGui::Image((ImTextureID)frameBuffer.getFrameTexture(), ImVec2(200, 200));
+                render_to_framebuffer_cube(color, textureID);
+                ImGui::Image(reinterpret_cast<ImTextureID>(frameBuffer.getFrameTexture()), ImVec2(200, 200));
                 frameBuffer.Unbind();
                 ImNodes::EndNode();
             }
@@ -908,7 +991,7 @@ public:
 
                 frameBUfferSphere.Bind();
                 render_to_framebuffer_sphere(color);
-                ImGui::Image((ImTextureID)frameBUfferSphere.getFrameTexture(), ImVec2(200, 200));
+                ImGui::Image(reinterpret_cast<ImTextureID>(frameBUfferSphere.getFrameTexture()), ImVec2(200, 200));
                 frameBUfferSphere.Unbind();
                 ImNodes::EndNode();
             }
@@ -921,47 +1004,14 @@ public:
                 ImGui::TextUnformatted("Texture Node");
                 ImNodes::EndNodeTitleBar();
 
-                // Input for texture path
-                //static char file_path[20] = "";
-                //ImGui::InputText("Path", file_path, sizeof(file_path));
-
-                if (ImGui::Button("Select Texture"))
+                if (node.ui.texture.path)
                 {
-                    const char* file_filters[] = { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.tga" };
-                    const char* selected_file = tinyfd_openFileDialog(
-                        "Select Texture File",       // Dialog title
-                        "",                          // Default path
-                        5,                           // Number of filters
-                        file_filters,                // Filters
-                        "Image Files (*.png, *.jpg)",// Filter description
-                        0                            // Allow multiple selection
-                        );
-
-                    if (node.ui.texture.path)
-                    {
-                        free(node.ui.texture.path);
-                    }
-
-                    if (selected_file)
-                    {
-                        // Free previous memory if path was already set
-                        if (node.ui.texture.path)
-                        {
-                            free(node.ui.texture.path);
-                        }
-
-                        // Allocate and copy the new file path
-                        node.ui.texture.path = strdup(selected_file);
-
-                        // Load the texture using the new path
-                        node.ui.texture.textureid = textureManager.loadTexture(node.ui.texture.path);
-                    }
+                    //ImGui::Text("Texture: %s", node.ui.texture.path);
+                    ImGui::Image(reinterpret_cast<ImTextureID>(node.ui.texture.id), ImVec2(100, 100));
                 }
-
-                // Render Texture Preview
-                if (node.ui.texture.textureid != 0)
+                else
                 {
-                    ImGui::Image((ImTextureID)node.ui.texture.textureid, ImVec2(100, 100));
+                    ImGui::Text("No texture selected");
                 }
 
                 ImNodes::BeginOutputAttribute(node.id);
@@ -971,6 +1021,7 @@ public:
                 ImNodes::EndNode();
             }
             break;
+
             }
 
         }
@@ -1082,7 +1133,7 @@ public:
                         graph_.erase_node(iter->ui.sphereviewport.input);
                         break;
                     case UiNodeType::texture:
-                        graph_.erase_node(iter->ui.texture.textureid);
+                      //  graph_.erase_node(iter->ui.texture.id);
                         break;
 
                     default:
@@ -1106,7 +1157,7 @@ public:
 
         ImGui::Begin("3d view");
         ImVec2 windowSize = ImGui::GetContentRegionAvail();
-        ImGui::Image(ImTextureID(frameBuffer.getFrameTexture()), windowSize);
+        ImGui::Image(reinterpret_cast<ImTextureID>(frameBuffer.getFrameTexture()), windowSize);
         ImGui::End();
     }
 
@@ -1179,8 +1230,10 @@ public:
             break;
             case NodeType::texture:
             {
-                // Push the texture ID onto the evaluation stack
-                //value_stack.push(static_cast<float>(node.ui.texture.textureid));
+                const float id = value_stack.top();
+                std::cerr << "id: " << id << std::endl;
+                value_stack.pop();
+                value_stack.push(static_cast<float>(id));
             }
             break;
             default:
@@ -1201,78 +1254,4 @@ public:
         return IM_COL32(r, g, b, 255);
     }
 
-
-private:
-    enum class UiNodeType
-    {
-        add,
-        multiply,
-        output,
-        sine,
-        time,
-        power,
-        cubeviewport,
-        sphereviewport,
-        texture,
-    };
-
-    struct UiNode
-    {
-        UiNodeType type;
-        // The identifying id of the ui node. For add, multiply, sine, and time
-        // this is the "operation" node id. The additional input nodes are
-        // stored in the structs.
-        int id;
-
-        union
-        {
-            struct
-            {
-                int lhs, rhs;
-            } add;
-
-            struct
-            {
-                int lhs, rhs;
-            } multiply;
-
-            struct
-            {
-                int lhs, rhs;
-            } power;
-
-            struct
-            {
-                int r, g, b;
-            } output;
-
-            struct
-            {
-                int input;
-            } sine;
-
-            struct
-            {
-                int input;
-            } cubeviewport;
-
-            struct
-            {
-                int input;
-            } sphereviewport;
-
-            struct
-            {
-                int textureid;
-                char* path;
-            }texture;
-
-        } ui;
-    };
-
-    Graph<Node>            graph_;
-    std::vector<UiNode>    nodes_;
-    int                    root_node_id_;
-    ImNodesMiniMapLocation minimap_location_;
-    bool showSphere;
 };

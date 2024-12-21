@@ -1,6 +1,9 @@
 #pragma once
 
+#include <iostream>
 #include <fstream>
+#include <sstream>
+#include <GL/glew.h>
 
 enum TypeShader
 {

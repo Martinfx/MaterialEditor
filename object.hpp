@@ -96,22 +96,44 @@ std::vector<Vertex> generateSphere(float radius, int latitudeSegments, int longi
 
 const char* shaderVertex =
 "#version 330 core\n"
-"layout(location = 0) in vec3 aPos;\n"
+"layout (location = 0) in vec3 aPos;\n"
+"layout (location = 1) in vec3 aNormal;\n"
+"layout (location = 2) in vec2 aTexCoords;\n"
 "uniform mat4 model;\n"
 "uniform mat4 view;\n"
 "uniform mat4 projection;\n"
+"\n"
+"out vec3 FragPos;\n"
+"out vec3 Normal;\n"
+"out vec2 TexCoords;\n"
+"\n"
 "void main()\n"
 "{\n"
-"    gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
+"FragPos = vec3(model * vec4(aPos, 1.0));\n"
+"Normal = mat3(transpose(inverse(model))) * aNormal;\n"
+"TexCoords = aTexCoords;\n"
+"gl_Position = projection * view * vec4(FragPos, 1.0);\n"
 "}\n";
 
 const char* shaderFragment =
 "#version 330 core\n"
 "out vec4 FragColor;\n"
+"\n"
+"in vec3 Normal;\n"
+"in vec2 TexCoords;\n"
+"\n"
 "uniform vec3 color;\n"
+"uniform sampler2D textureSampler;\n"
+"\n"
 "void main()\n"
 "{\n"
-"    FragColor = vec4(color, 1.0);\n"
+"    vec4 texColor = texture(textureSampler, TexCoords);\n"
+"    vec3 norm = normalize(Normal);\n"
+"    vec3 lightDir = normalize(vec3(0.0, 0.0, 1.0));\n"
+"    float diff = max(dot(norm, lightDir), 0.0);\n"
+"    vec3 mixedColor = mix(texColor.rgb, color, 0.5); //%50 color , 50 texture\n"
+"    vec3 lighting = diff * mixedColor;\n"
+"    FragColor = vec4(lighting, texColor.a);\n"
 "}\n";
 
 

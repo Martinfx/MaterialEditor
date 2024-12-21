@@ -3,6 +3,8 @@
 #include <string>
 #include <unordered_map>
 #include <iostream>
+#include <fstream>
+
 #include <GL/glew.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "3rdparty/stb_image.h"

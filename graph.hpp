@@ -2,7 +2,9 @@
 
 #include <algorithm>
 #include <cassert>
+#include <iostream>
 #include <iterator>
+#include <ostream>
 #include <stack>
 #include <stddef.h>
 #include <utility>
@@ -263,6 +265,7 @@ int Graph<NodeType>::insert_node(const NodeType& node)
     nodes_.insert(id, node);
     edges_from_node_.insert(id, 0);
     node_neighbors_.insert(id, std::vector<int>());
+    std::cerr << "insert node id: " << id << std::endl;
     return id;
 }
 
