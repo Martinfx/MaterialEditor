@@ -137,6 +137,7 @@ private:
     int                    root_node_id_;
     ImNodesMiniMapLocation minimap_location_;
     bool showSphere;
+    bool initialized = false;
 
 public:
 
@@ -149,33 +150,36 @@ public:
 
 
     void renderCube(const glm::vec3& color, const glm::mat4& projection, const glm::mat4& view, const glm::mat4& model, int textureID) {
-        // if(cubeVAO == 0) {
-        glGenVertexArrays(1, &cubeVAO);
-        glGenBuffers(1, &cubeVBO);
-
-        glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
-        glBufferData(GL_ARRAY_BUFFER, sizeof(CubeVertices), CubeVertices, GL_STATIC_DRAW);
-
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(CubeIndices), CubeIndices, GL_STATIC_DRAW);
-
-        glBindVertexArray(cubeVAO);
+        if (!initialized) {
+            GLuint vpos_location, vcol_location, tex_location;
+            vpos_location = glGetAttribLocation(mainShader.getShaderProgram(), "aPos");
+            vcol_location = glGetAttribLocation(mainShader.getShaderProgram(), "aNormal");
+            tex_location  = glGetAttribLocation(mainShader.getShaderProgram(), "aTexCoords");
 
 
-        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
-        glEnableVertexAttribArray(0);
+            glGenVertexArrays(1, &cubeVAO);
+            glGenBuffers(1, &cubeVBO);
+            glGenBuffers(1, &ebo);
 
+            glBindVertexArray(cubeVAO);
 
-        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
-        glEnableVertexAttribArray(1);
+            glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+            glBufferData(GL_ARRAY_BUFFER, sizeof(CubeVertices), CubeVertices, GL_STATIC_DRAW);
 
+            glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+            glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(CubeIndices), CubeIndices, GL_STATIC_DRAW);
 
-        glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
-        glEnableVertexAttribArray(2);
+            glVertexAttribPointer(vpos_location, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+            glEnableVertexAttribArray(vpos_location);
 
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
-        glBindVertexArray(0);
-        // }
+            glVertexAttribPointer(vcol_location, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
+            glEnableVertexAttribArray(vcol_location);
+
+            glVertexAttribPointer(tex_location, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+            glEnableVertexAttribArray(tex_location);
+
+            initialized = true;
+        }
 
         mainShader.useShaderProgram();
 
@@ -185,14 +189,12 @@ public:
 
         glUniform3fv(glGetUniformLocation(mainShader.getShaderProgram(), "color"), 1, &color[0]);
 
-        //glActiveTexture(GL_TEXTURE0);
-        //glBindTexture(GL_TEXTURE_2D, textureID);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, textureID);
         glUniform1i(glGetUniformLocation(mainShader.getShaderProgram(), "textureSampler"), 0);
 
         glBindVertexArray(cubeVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glBindVertexArray(0);
-
+        glDrawArrays(GL_TRIANGLES, 0,  36);
     }
 
     void setupSphere(float radius, int latitudeSegments, int longitudeSegments) {

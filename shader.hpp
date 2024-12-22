@@ -4,6 +4,7 @@
 #include <fstream>
 #include <sstream>
 #include <GL/glew.h>
+#include <glm/glm.hpp>
 
 enum TypeShader
 {
@@ -59,12 +60,12 @@ public:
         }
     }
 
-    void useShaderProgram()
+    void useShaderProgram() const
     {
         glUseProgram(m_id);
     }
 
-    GLuint getShaderProgram()
+    GLuint getShaderProgram() const
     {
         return m_id;
     }
