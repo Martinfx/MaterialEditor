@@ -9,7 +9,6 @@
 
 #include "3rdparty/imnodes/imnodes.h"
 #include "editor.hpp"
-#include "node.hpp"
 
 GLFWwindow* initializeWindow() {
     if (!glfwInit()) {

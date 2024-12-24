@@ -60,6 +60,10 @@ public:
         }
     }
 
+    void loadShaderFromString(const char *shader, TypeShader type) {
+        loadShader(shader, type);
+    }
+
     void useShaderProgram() const
     {
         glUseProgram(m_id);
@@ -191,7 +195,7 @@ protected:
             int logLenght;
             GLchar log[1024];
             glGetProgramInfoLog(program, 1024, &logLenght, log);
-            std::cerr << "[INFO] Pogram linker success ! " << log <<
+            std::cerr << "[INFO] Program linker success ! " << log <<
                 " - Log lenght: " << logLenght <<
                 "\n";
         }

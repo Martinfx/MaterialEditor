@@ -7,6 +7,7 @@
 #include <ostream>
 #include <stack>
 #include <stddef.h>
+#include <unordered_set>
 #include <utility>
 #include <vector>
 
@@ -203,6 +204,8 @@ public:
     void erase_edge(int edge_id);
 
     bool node_exists(const int id) const;
+    bool edge_exists(int from, int to) const;
+    void remove_disconnected_edges(int start_node);
 
 private:
     int current_id_;
@@ -225,17 +228,20 @@ template<typename NodeType>
 const NodeType& Graph<NodeType>::node(const int id) const
 {
     const auto iter = nodes_.find(id);
-    assert(iter != nodes_.end());
+    //assert(iter != nodes_.end());
     return *iter;
 }
 
 template<typename NodeType>
-Span<const int> Graph<NodeType>::neighbors(int node_id) const
-{
-    const auto iter = node_neighbors_.find(node_id);
-    assert(iter != node_neighbors_.end());
+Span<const int> Graph<NodeType>::neighbors(int node_id) const {
+    auto iter = node_neighbors_.find(node_id);
+    if (iter == node_neighbors_.end()) {
+        static const std::vector<int> empty_vector; // Define an empty vector to represent no neighbors
+        return Span<const int>(empty_vector);      // Use the empty vector to create an empty span
+    }
     return *iter;
 }
+
 
 template<typename NodeType>
 Span<const typename Graph<NodeType>::Edge> Graph<NodeType>::edges() const
@@ -301,10 +307,15 @@ void Graph<NodeType>::erase_node(const int id)
 template<typename NodeType>
 int Graph<NodeType>::insert_edge(const int from, const int to)
 {
+    if (from == to) {
+        std::cerr << "Error: Self-loop detected (from = " << from << ", to = " << to << ")" << std::endl;
+        return -1;
+    }
+
     const int id = current_id_++;
     assert(!edges_.contains(id));
     assert(nodes_.contains(from));
-    assert(nodes_.contains(to));
+    //assert(nodes_.contains(to));
     edges_.insert(id, Edge(id, from, to));
 
     // update neighbor count
@@ -344,6 +355,49 @@ void Graph<NodeType>::erase_edge(const int edge_id)
     }
 
     edges_.erase(edge_id);
+}
+
+template<typename NodeType>
+bool Graph<NodeType>::edge_exists(int from, int to) const {
+    for (const auto& edge : edges_) {
+        if (edge.from == from && edge.to == to) {
+            return true;
+        }
+    }
+    return false;
+}
+
+template<typename NodeType>
+void Graph<NodeType>::remove_disconnected_edges(int start_node) {
+    // Step 1: Find all reachable nodes using DFS
+    // Initialize a set to keep track of all nodes that can be visited from the start node
+    std::unordered_set<int> reachable_nodes;
+    dfs_traverse(*this, start_node, [&reachable_nodes](int node) {
+        reachable_nodes.insert(node);
+    });
+
+    // Step 2: Identify valid edges connecting reachable nodes
+    // Store IDs of edges that connect only reachable nodes
+    std::vector<int> edges_to_keep;
+    for (const auto& edge : edges_.elements()) {
+        if (reachable_nodes.count(edge.from) && reachable_nodes.count(edge.to)) {
+            edges_to_keep.push_back(edge.id);
+        }
+    }
+
+    // Step 3: Remove edges that are not in the list of valid edges
+    // Any edge not in the `edges_to_keep` list is considered disconnected and will be removed
+    std::vector<int> edges_to_erase;
+    for (const auto& edge : edges_.elements()) {
+        if (std::find(edges_to_keep.begin(), edges_to_keep.end(), edge.id) == edges_to_keep.end()) {
+            edges_to_erase.push_back(edge.id);
+        }
+    }
+
+    // Delete each disconnected edge from the graph
+    for (int edge_id : edges_to_erase) {
+        erase_edge(edge_id);
+    }
 }
 
 template<typename NodeType, typename Visitor>

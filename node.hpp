@@ -1,9 +1,5 @@
 #pragma once
 
-#include <iostream>
-#include <vector>
-#include <unordered_map>
-
 enum class NodeType
 {
     add,
@@ -15,7 +11,15 @@ enum class NodeType
     power,
     cubeviewport,
     spherevieport,
-    texture
+    texture,
+    blend,
+    colorAdjust,
+    light,              // Základní světlo
+    pointLight,         // Bodové světlo
+    directionalLight,   // Směrové světlo
+    spotLight,         // Bodové světlo s kuželem
+    lightingModel,     // Node pro nastavení modelu osvětlení (Phong, Blinn-Phong)
+    material           // Materiálové vlastnosti
 };
 
 struct Node
@@ -24,32 +28,5 @@ struct Node
     float    value;
 
     explicit Node(const NodeType t) : type(t), value(0.f) {}
-
     Node(const NodeType t, const float v) : type(t), value(v) {}
-
-
-    /*void compute(Node &node) {
-        //for (auto& node : nodes) {
-        if (node.type == NodeType::Operation) {
-            if (node.name == "Add") {
-                float a = node.parameters["Input A"];
-                float b = node.parameters["Input B"];
-                node.computedOutputs["Result"] = a + b;
-            }
-        }
-        //}
-    }*/
 };
-/*
-inline std::string NodeTypeToString(NodeType type)
-{
-    switch (type)
-    {
-    case NodeType::Parameter:   return "Parametr";
-    case NodeType::Operation:   return "Operation";
-    case NodeType::Output:      return "Output";
-    case NodeType::Texture:     return "Texture";
-
-    default:      return "[Unknown type]";
-    }
-}*/

@@ -32,7 +32,17 @@ public:
         // Load the texture image
         unsigned char* data = stbi_load(filepath.c_str(), &texture.width, &texture.height, &texture.channels, 0);
         if (data) {
-            GLenum format = (texture.channels == 4) ? GL_RGBA : GL_RGB;
+            GLenum format;
+            if (texture.channels == 1) {
+                format = GL_RED;
+            }
+            else if (texture.channels == 3) {
+                format = GL_RGB;
+            }
+            else if (texture.channels == 4) {
+                format = GL_RGBA;
+            };
+
             glTexImage2D(GL_TEXTURE_2D, 0, format, texture.width, texture.height, 0, format, GL_UNSIGNED_BYTE, data);
             glGenerateMipmap(GL_TEXTURE_2D);
 
