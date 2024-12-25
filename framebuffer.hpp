@@ -24,26 +24,27 @@ public:
     int GetHeight() { return height; }
 
 private:
-    unsigned int fbo;
+    unsigned int framebuffer;
     std::vector<GLuint> textures;
     unsigned int rbo;
     int width;
     int height;
     unsigned int viewerTextureIndex; // Index of the viewer texture
+    unsigned int texColorBuffer;
 };
 
 FrameBuffer::FrameBuffer()
-    : fbo(0), rbo(0), width(0), height(0), viewerTextureIndex(0) {}
+    : framebuffer(0), rbo(0), width(0), height(0), viewerTextureIndex(0) {}
 
 FrameBuffer::FrameBuffer(float width, float height)
-    : fbo(0), rbo(0), viewerTextureIndex(0)
+    : framebuffer(0), rbo(0), viewerTextureIndex(0)
 {
     InitFrameBuffer(width, height);
 }
 
 FrameBuffer::~FrameBuffer()
 {
-    glDeleteFramebuffers(1, &fbo);
+    glDeleteFramebuffers(1, &framebuffer);
     glDeleteTextures(textures.size(), textures.data());
     glDeleteRenderbuffers(1, &rbo);
 }
@@ -53,14 +54,26 @@ void FrameBuffer::InitFrameBuffer(float width, float height)
     this->width = width;
     this->height = height;
 
-    glGenFramebuffers(1, &fbo);
+    glGenFramebuffers(1, &framebuffer);
     glCheckError();
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
+    //AddTextureAttachment(GL_RGB, GL_COLOR_ATTACHMENT0);
+    //AddTextureAttachment(GL_RGB, GL_COLOR_ATTACHMENT1);
     glCheckError();
-    // Create and add default color attachment
-    AddTextureAttachment(GL_RGB, GL_COLOR_ATTACHMENT0);
+
+    glGenTextures(1, &texColorBuffer);
     glCheckError();
-    // Create renderbuffer for depth and stencil
+    glBindTexture(GL_TEXTURE_2D, texColorBuffer);
+    glCheckError();
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 800, 600, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glCheckError();
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glCheckError();
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glCheckError();
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, texColorBuffer, 0);
+    glCheckError();
+
     glGenRenderbuffers(1, &rbo);
     glCheckError();
     glBindRenderbuffer(GL_RENDERBUFFER, rbo);
@@ -73,24 +86,29 @@ void FrameBuffer::InitFrameBuffer(float width, float height)
         std::cerr << "ERROR::FRAMEBUFFER:: Framebuffer is not complete!" << std::endl;
     }
 
+
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    //GLenum DrawBuffers[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
+    //glDrawBuffers(2, DrawBuffers); // "1" is the size of DrawBuffers
 }
 
 void FrameBuffer::AddTextureAttachment(GLenum format, GLenum attachment)
 {
     GLuint texture;
     glGenTextures(1, &texture);
-    glCheckError();
     glBindTexture(GL_TEXTURE_2D, texture);
-    glCheckError();
-    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0,
-                 (format == GL_DEPTH_COMPONENT ? GL_DEPTH_COMPONENT : GL_RGB),
-                 GL_UNSIGNED_BYTE, nullptr);
-    glCheckError();
+
+    if (attachment == GL_DEPTH_ATTACHMENT) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT, width, height, 0,
+                     GL_DEPTH_COMPONENT, GL_UNSIGNED_BYTE, nullptr);
+    } else {
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0,
+                     GL_RGB, GL_UNSIGNED_BYTE, nullptr);
+    }
+
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glCheckError();
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glCheckError();
     glFramebufferTexture2D(GL_FRAMEBUFFER, attachment, GL_TEXTURE_2D, texture, 0);
 
     textures.push_back(texture);
@@ -102,11 +120,12 @@ void FrameBuffer::AddTextureAttachment(GLenum format, GLenum attachment)
 
 unsigned int FrameBuffer::getFrameTexture(unsigned int index)
 {
-    if (index >= textures.size()) {
+   /* if (index >= textures.size()) {
         std::cerr << "ERROR::FRAMEBUFFER:: Invalid texture index requested!" << std::endl;
         return 0;
     }
-    return textures.at(index);
+    return textures.at(index);*/
+    return texColorBuffer;
 }
 
 void FrameBuffer::SetViewerTextureIndex(unsigned int index)
@@ -123,7 +142,7 @@ void FrameBuffer::RescaleFrameBuffer(float width, float height)
     this->width = width;
     this->height = height;
 
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
 
     for (unsigned int texture : textures) {
         glBindTexture(GL_TEXTURE_2D, texture);
@@ -139,7 +158,7 @@ void FrameBuffer::RescaleFrameBuffer(float width, float height)
 
 void FrameBuffer::Bind() const
 {
-    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, framebuffer);
     glCheckError();
 }
 

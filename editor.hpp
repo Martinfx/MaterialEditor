@@ -48,9 +48,9 @@ public:
         mainShader.createShaderProgram();
 
         // first viewer is cube.
-        //frameBuffer.Bind();
-        //render_to_framebuffer_cube(glm::vec3(1.0f, 0.5f, 0.31f));
-        //sframeBuffer.Unbind();
+        frameBuffer.Bind();
+        render_to_framebuffer_cube(glm::vec3(1.0f, 0.5f, 0.31f));
+        frameBuffer.Unbind();
     }
 
 private:
@@ -557,6 +557,7 @@ public:
 
 
         // Render the cube
+        //glBindTexture(GL_TEXTURE_2D, frameBuffer.getFrameTexture());
         glBindVertexArray(cubeVAO);
         glDrawArrays(GL_TRIANGLES, 0, 36);
         glBindVertexArray(0);
@@ -656,7 +657,6 @@ public:
     void updateShaderAndConfiguration() {
         auto shaderCode = ShaderCodeGenerator::generateShaderCode(nodes_, graph_);
 
-        // Vytvoření nového shader programu
         mainShader.loadShaderFromString(shaderCode.vertexCode.c_str(), TypeShader::VERTEX_SHADER);
         mainShader.loadShaderFromString(shaderCode.fragmentCode.c_str(), TypeShader::FRAGMENT_SHADER);
         mainShader.createShaderProgram();

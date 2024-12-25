@@ -8,6 +8,7 @@
 #include <GL/glew.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "3rdparty/stb_image.h"
+#include "debug.hpp"
 
 class TextureManager {
 public:
@@ -27,8 +28,9 @@ public:
         texture.path = filepath;
 
         glGenTextures(1, &texture.id);
+        glCheckError();
         glBindTexture(GL_TEXTURE_2D, texture.id);
-
+        glCheckError();
         // Load the texture image
         unsigned char* data = stbi_load(filepath.c_str(), &texture.width, &texture.height, &texture.channels, 0);
         if (data) {
@@ -44,13 +46,18 @@ public:
             };
 
             glTexImage2D(GL_TEXTURE_2D, 0, format, texture.width, texture.height, 0, format, GL_UNSIGNED_BYTE, data);
+            glCheckError();
             glGenerateMipmap(GL_TEXTURE_2D);
-
+            glCheckError();
             // Set texture parameters
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+            glCheckError();
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+            glCheckError();
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+            glCheckError();
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+            glCheckError();
 
             stbi_image_free(data);
             textures_[filepath] = texture;
