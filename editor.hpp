@@ -42,7 +42,7 @@ public:
         //frameBuffer.AddTextureAttachment(GL_RGB, GL_COLOR_ATTACHMENT1);
         //glCheckError();
         //frameBuffer.SetViewerTextureIndex(1);
-        //frameBUfferSphere.InitFrameBuffer(800, 600);
+        frameBUfferSphere.InitFrameBuffer(800, 600);
         auto shaderCode = ShaderCodeGenerator::generateShaderCode(nodes_, graph_);
         mainShader.loadShaderFromString(shaderCode.vertexCode.c_str(), TypeShader::VERTEX_SHADER);
         mainShader.loadShaderFromString(shaderCode.fragmentCode.c_str(), TypeShader::FRAGMENT_SHADER);
@@ -634,10 +634,43 @@ public:
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, texCoords));
 
         glBindVertexArray(0);
+
+
     }
 
     void renderSphere(const glm::mat4& projection, const glm::mat4& view, const glm::mat4& model, const glm::vec3& color) {
+
         mainShader.useShaderProgram();
+
+        glm::vec3 cameraPosition = glm::vec3(3.0f, 3.0f, 3.0f);
+        glUniform3f(glGetUniformLocation(mainShader.getShaderProgram(), "viewPos"), cameraPosition.x, cameraPosition.y, cameraPosition.z);
+        glCheckError();
+
+        glActiveTexture(GL_TEXTURE0);
+        glCheckError();
+        glBindTexture(GL_TEXTURE_2D, textureId);
+        std::cerr << "textureId : " << textureId << std::endl;
+        glCheckError();
+        mainShader.setUniformInt("texture1", 0);
+        glCheckError();
+
+        glActiveTexture(GL_TEXTURE1);
+        glCheckError();
+        glBindTexture(GL_TEXTURE_2D, textureId2);
+        std::cerr << "textureId2 : " << textureId2 << std::endl;
+        glCheckError();
+        mainShader.setUniformInt("texture2", 1);
+        glCheckError();
+        GLint texture1Location = glGetUniformLocation(mainShader.getShaderProgram(), "texture1");
+        if (texture1Location == -1) {
+            std::cerr << "Uniform 'texture1' not found or unused in shader." << std::endl;
+        }
+
+        GLint texture2Location = glGetUniformLocation(mainShader.getShaderProgram(), "texture2");
+        if (texture2Location == -1) {
+            std::cerr << "Uniform 'texture2' not found or unused in shader." << std::endl;
+        }
+
         glUniformMatrix4fv(glGetUniformLocation(mainShader.getShaderProgram(), "projection"), 1, GL_FALSE, &projection[0][0]);
         glUniformMatrix4fv(glGetUniformLocation(mainShader.getShaderProgram(), "view"), 1, GL_FALSE, &view[0][0]);
         glUniformMatrix4fv(glGetUniformLocation(mainShader.getShaderProgram(), "model"), 1, GL_FALSE, &model[0][0]);
@@ -1341,18 +1374,6 @@ public:
                 textureId2= graph_.node(input_id + 2).value;
                 mixFactor = graph_.node(input_id ).value;
 
-
-                //textureId = (unsigned int)graph_.node(node.ui.blend.id).value;
-                //textureId2 = (unsigned int)graph_.node(node.ui.blend.id2).value;
-                //mixFactor = graph_.node(node.ui.blend.mixFactor).value;
-
-                //texture = node.ui.texture.id;
-                //textureId = node.ui.blend.id;
-                //textureId2 = node.ui.blend.id2;
-                //std::cerr << "textureId: " << textureId << " textureId2: " << textureId2 << std::endl;
-                //std::cerr << textureId << textureId2 << std::endl;
-                //mixFactor = 0.2f;//= node.ui.blend.mixFactor;
-
                 brightness = node.ui.colorAdjust.brightness;
                 contrast = node.ui.colorAdjust.contrast;
                 saturation = node.ui.colorAdjust.saturation;
@@ -1446,7 +1467,7 @@ public:
                 ImGui::Spacing();
 
                 ImGui::PushItemWidth(node_width);
-                ImGui::DragFloat("Mix Factor", &node.ui.blend.mixFactor, 0.5f,0.5f,0.5f);
+                ImGui::DragFloat("Mix Factor", &graph_.node(node.ui.blend.mixFactor).value, 0.01f, 0.0f, 2.0f);
                 ImGui::PopItemWidth();
 
                 ImNodes::BeginOutputAttribute(node.id);
