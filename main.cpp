@@ -30,14 +30,14 @@ GLFWwindow* initializeWindow() {
 
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1); // Enable V-Sync
-
+glCheckError();
     if (glewInit() != GLEW_OK) {
         std::cerr << "Failed to initialize GLEW!" << std::endl;
         return nullptr;
     }
 
     glViewport(0, 0, 1280, 720);
-
+    glCheckError();
     return window;
 }
 
@@ -92,11 +92,15 @@ int main() {
         int display_w, display_h;
         glfwGetFramebufferSize(window, &display_w, &display_h);
         glViewport(0, 0, display_w, display_h);
+        glCheckError();
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        glCheckError();
         glClear(GL_COLOR_BUFFER_BIT);
+        glCheckError();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 
         glfwSwapBuffers(window);
+        glCheckError();
     }
 
     // Cleanup

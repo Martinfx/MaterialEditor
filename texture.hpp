@@ -1,55 +1,46 @@
 #pragma once
 
-#include <string>
-#include <unordered_map>
 #include <iostream>
-#include <fstream>
-
 #include <GL/glew.h>
 #define STB_IMAGE_IMPLEMENTATION
 #include "3rdparty/stb_image.h"
 #include "debug.hpp"
 
-class TextureManager {
+class TextureManager
+{
 public:
-    struct Texture {
-        unsigned int id;
-        int width, height, channels;
-        std::string path;
-    };
 
-    // Load a texture from file
-    unsigned int loadTexture(const std::string& filepath) {
-        if (textures_.count(filepath)) {
-            return textures_[filepath].id;
-        }
+    TextureManager() {}
+    ~TextureManager() {}
 
-        Texture texture;
-        texture.path = filepath;
-
-        glGenTextures(1, &texture.id);
-        glCheckError();
-        glBindTexture(GL_TEXTURE_2D, texture.id);
-        glCheckError();
-        // Load the texture image
-        unsigned char* data = stbi_load(filepath.c_str(), &texture.width, &texture.height, &texture.channels, 0);
-        if (data) {
-            GLenum format;
-            if (texture.channels == 1) {
+    unsigned int loadTexture(const std::string &name)
+    {
+        glGenTextures(1, &m_id);
+        int width, height, nrChannels;
+        unsigned char *data = stbi_load(name.c_str(), &width, &height, &nrChannels, 0);
+        if(data)
+        {
+            GLenum format = 0;
+            if (nrChannels == 1)
+            {
                 format = GL_RED;
             }
-            else if (texture.channels == 3) {
+            else if (nrChannels == 3)
+            {
                 format = GL_RGB;
             }
-            else if (texture.channels == 4) {
+            else if (nrChannels == 4)
+            {
                 format = GL_RGBA;
-            };
+            }
 
-            glTexImage2D(GL_TEXTURE_2D, 0, format, texture.width, texture.height, 0, format, GL_UNSIGNED_BYTE, data);
-            glCheckError();
-            glGenerateMipmap(GL_TEXTURE_2D);
-            glCheckError();
-            // Set texture parameters
+            glBindTexture(GL_TEXTURE_2D, m_id);
+             glCheckError();
+            glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+              glCheckError();
+             glGenerateMipmap(GL_TEXTURE_2D);
+             glCheckError();
+
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
             glCheckError();
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
@@ -58,72 +49,65 @@ public:
             glCheckError();
             glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
             glCheckError();
-
+            std::cerr << "Load texture: " << name << std::endl;
             stbi_image_free(data);
-            textures_[filepath] = texture;
-
-            std::cout << "Texture loaded: " << filepath << std::endl;
-        } else {
-            std::cerr << "Failed to load texture: " << filepath << std::endl;
-            glDeleteTextures(1, &texture.id);
-            return 0;
+        }
+        else
+        {
+            std::cerr << "Failed to load texture: " << name << std::endl;
+            stbi_image_free(data);
         }
 
-        return texture.id;
+        return m_id;
     }
 
-    // Retrieve a texture by path
-    const Texture* getTexture(const std::string& filepath) const {
-        auto it = textures_.find(filepath);
-        if (it != textures_.end()) {
-            return &it->second;
+    unsigned int loadCubeTexture(std::vector<std::string> &faces)
+    {
+        unsigned int textureID;
+        glGenTextures(1, &textureID);
+        glBindTexture(GL_TEXTURE_CUBE_MAP, textureID);
+
+        int width, height, nrChannels;
+        for (unsigned int i = 0; i < faces.size(); i++)
+        {
+            unsigned char *data = stbi_load(faces[i].c_str(), &width, &height, &nrChannels, 0);
+            if(data)
+            {
+                GLenum format = 0;
+                if (nrChannels == 1)
+                {
+                    format = GL_RED;
+                }
+                else if (nrChannels == 3)
+                {
+                    format = GL_RGB;
+                }
+                else if (nrChannels == 4)
+                {
+                    format = GL_RGBA;
+                }
+
+                glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+                stbi_image_free(data);
+            }
+            else
+            {
+                std::cout << "Cubemap texture failed to load at path: " << faces[i] << std::endl;
+                stbi_image_free(data);
+            }
         }
-        return nullptr;
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+        return textureID;
     }
 
-    // Save texture information
-    void saveTextures(const std::string& savePath) const {
-        std::ofstream file(savePath);
-        if (!file.is_open()) {
-            std::cerr << "Failed to open file for saving textures: " << savePath << std::endl;
-            return;
-        }
-
-        for (const auto& [path, texture] : textures_) {
-            file << path << std::endl;
-        }
-
-        file.close();
-        std::cout << "Textures saved to: " << savePath << std::endl;
-    }
-
-    // Load texture information
-    void loadTextures(const std::string& loadPath) {
-        std::ifstream file(loadPath);
-        if (!file.is_open()) {
-            std::cerr << "Failed to open file for loading textures: " << loadPath << std::endl;
-            return;
-        }
-
-        std::string path;
-        while (std::getline(file, path)) {
-            loadTexture(path);
-        }
-
-        file.close();
-        std::cout << "Textures loaded from: " << loadPath << std::endl;
-    }
-
-    // Cleanup textures
-    void cleanup() {
-        for (const auto& [_, texture] : textures_) {
-            glDeleteTextures(1, &texture.id);
-        }
-        textures_.clear();
-    }
 
 private:
-    std::unordered_map<std::string, Texture> textures_;
-};
 
+    unsigned int m_id;
+};
 

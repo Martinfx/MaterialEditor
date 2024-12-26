@@ -30,7 +30,7 @@ private:
     int width;
     int height;
     unsigned int viewerTextureIndex; // Index of the viewer texture
-    unsigned int texColorBuffer;
+    unsigned int texColorBuffer = -1;
 };
 
 FrameBuffer::FrameBuffer()
@@ -65,7 +65,7 @@ void FrameBuffer::InitFrameBuffer(float width, float height)
     glCheckError();
     glBindTexture(GL_TEXTURE_2D, texColorBuffer);
     glCheckError();
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, 800, 600, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, this->width, this->height, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
     glCheckError();
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glCheckError();
@@ -89,8 +89,6 @@ void FrameBuffer::InitFrameBuffer(float width, float height)
 
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-    //GLenum DrawBuffers[2] = {GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1};
-    //glDrawBuffers(2, DrawBuffers); // "1" is the size of DrawBuffers
 }
 
 void FrameBuffer::AddTextureAttachment(GLenum format, GLenum attachment)

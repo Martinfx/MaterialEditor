@@ -43,8 +43,9 @@ public:
         //glCheckError();
         //frameBuffer.SetViewerTextureIndex(1);
         //frameBUfferSphere.InitFrameBuffer(800, 600);
-        mainShader.loadShader(shaderVertex, TypeShader::VERTEX_SHADER);
-        mainShader.loadShader(shaderFragment, TypeShader::FRAGMENT_SHADER);
+        auto shaderCode = ShaderCodeGenerator::generateShaderCode(nodes_, graph_);
+        mainShader.loadShaderFromString(shaderCode.vertexCode.c_str(), TypeShader::VERTEX_SHADER);
+        mainShader.loadShaderFromString(shaderCode.fragmentCode.c_str(), TypeShader::FRAGMENT_SHADER);
         mainShader.createShaderProgram();
 
         // first viewer is cube.
@@ -53,9 +54,13 @@ public:
         frameBuffer.Unbind();
     }
 
+    ~NodeEditor()  {
+        //textureManager.cleanup();
+    }
+
 private:
     unsigned int fbo;      // Framebuffer Object
-    unsigned int texture;
+    unsigned int texture = 0;
     unsigned int rbo, ebo;
     unsigned int cubeVAO, cubeVBO = 0;
     unsigned int sphereVAO, sphereVBO, sphereEBO = 0;
@@ -71,8 +76,8 @@ private:
     float rotationX = 0;
 
     // blend
-    int textureId, textureId2 = -1;
-    float mixFactor = 0.0f;
+    unsigned int textureId, textureId2 = -1;
+    float mixFactor = 0.7f;
     // adjust
     float brightness, contrast, saturation = 0.0f;
     // light
@@ -84,7 +89,6 @@ private:
     float materialdiffuse = 0.f;
     float materialspecular = 0.f;
     float materialshininess = 0.f;
-
 
 private:
     enum class UiNodeType
@@ -161,8 +165,8 @@ private:
 
             struct
             {
-                int id;
-                int id2;
+                unsigned int id;
+                unsigned int id2;
                 char* path;
                 char* path2;
                 float mixFactor;
@@ -374,8 +378,8 @@ vec3 calculateLighting(vec3 normal, vec3 fragPos, vec3 viewDir, vec3 lightPos, v
             case UiNodeType::blend:
                 ss << "#ifdef USE_BLEND_" << node.id << "\n";
                 ss << "    vec4 blendResult" << node.id << " = blendTextures(\n";
-                ss << "        texture2D(texture1, TexCoords),\n";
-                ss << "        texture2D(texture2, TexCoords),\n";
+                ss << "        texture(texture1, TexCoords),\n";
+                ss << "        texture(texture2, TexCoords),\n";
                 ss << "        mixFactor);\n";
                 ss << "    result *= blendResult" << node.id << ".rgb;\n";
                 ss << "#endif\n";
@@ -464,69 +468,101 @@ public:
         if (!initialized) {
 
             glGenVertexArrays(1, &cubeVAO);
+            glCheckError();
             glGenBuffers(1, &cubeVBO);
+            glCheckError();
             glGenBuffers(1, &ebo);
-
+            glCheckError();
             glBindVertexArray(cubeVAO);
-
+            glCheckError();
             glBindBuffer(GL_ARRAY_BUFFER, cubeVBO);
+            glCheckError();
             glBufferData(GL_ARRAY_BUFFER, sizeof(CubeVertices), &CubeVertices, GL_STATIC_DRAW);
-
+            glCheckError();
             glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+            glCheckError();
             glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(CubeIndices), &CubeIndices, GL_STATIC_DRAW);
-
+            glCheckError();
             glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)0);
+            glCheckError();
             glEnableVertexAttribArray(0);
-
+            glCheckError();
             glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(3 * sizeof(float)));
             glEnableVertexAttribArray(1);
-
+            glCheckError();
             glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 8 * sizeof(float), (void*)(6 * sizeof(float)));
+            glCheckError();
             glEnableVertexAttribArray(2);
-
+            glCheckError();
             initialized = true;
         }
 
         mainShader.useShaderProgram();
-
+        glCheckError();
         // Set transformation matrices
         glUniformMatrix4fv(glGetUniformLocation(mainShader.getShaderProgram(), "projection"), 1, GL_FALSE, &projection[0][0]);
+        glCheckError();
         glUniformMatrix4fv(glGetUniformLocation(mainShader.getShaderProgram(), "view"), 1, GL_FALSE, &view[0][0]);
+        glCheckError();
         glUniformMatrix4fv(glGetUniformLocation(mainShader.getShaderProgram(), "model"), 1, GL_FALSE, &model[0][0]);
-
+        glCheckError();
         // Base color
         glUniform3fv(glGetUniformLocation(mainShader.getShaderProgram(), "baseColor"), 1, &color[0]);
-
+        glCheckError();
         // Handle Blend Node
 
-        int locTex1 = glGetUniformLocation(mainShader.getShaderProgram(), "texture1");
-        int locTex2 = glGetUniformLocation(mainShader.getShaderProgram(), "texture2");
-        int locMix = glGetUniformLocation(mainShader.getShaderProgram(), "mixFactor");
 
-        if (locTex1 == -1 || locTex2 == -1 || locMix == -1) {
-            std::cerr << "Error: Failed to locate one or more shader uniforms!" << std::endl;
-        }
+        //GLint viewPosLocation = glGetUniformLocation(mainShader.getShaderProgram(), "viewPos");
+        //if (viewPosLocation == -1) {
+        //    std::cerr << "Uniform 'viewPos' not found or unused in shader." << std::endl;
+        //   }
 
         glm::vec3 cameraPosition = glm::vec3(3.0f, 3.0f, 3.0f);
         glUniform3f(glGetUniformLocation(mainShader.getShaderProgram(), "viewPos"), cameraPosition.x, cameraPosition.y, cameraPosition.z);
+        glCheckError();
 
         glActiveTexture(GL_TEXTURE0);
+        glCheckError();
         glBindTexture(GL_TEXTURE_2D, textureId);
-        glUniform1i(glGetUniformLocation(mainShader.getShaderProgram(), "texture1"), 0);
+        std::cerr << "textureId : " << textureId << std::endl;
+        glCheckError();
+        mainShader.setUniformInt("texture1", 0);
+        glCheckError();
 
         glActiveTexture(GL_TEXTURE1);
+        glCheckError();
         glBindTexture(GL_TEXTURE_2D, textureId2);
-        glUniform1i(glGetUniformLocation(mainShader.getShaderProgram(), "texture2"), 1);
-        glUniform1f(glGetUniformLocation(mainShader.getShaderProgram(), "mixFactor"), mixFactor);
+        std::cerr << "textureId2 : " << textureId2 << std::endl;
+        glCheckError();
+        mainShader.setUniformInt("texture2", 1);
+        glCheckError();
+        GLint texture1Location = glGetUniformLocation(mainShader.getShaderProgram(), "texture1");
+        if (texture1Location == -1) {
+            std::cerr << "Uniform 'texture1' not found or unused in shader." << std::endl;
+        }
 
+        GLint texture2Location = glGetUniformLocation(mainShader.getShaderProgram(), "texture2");
+        if (texture2Location == -1) {
+            std::cerr << "Uniform 'texture2' not found or unused in shader." << std::endl;
+        }
+
+        glCheckError();
+        glUniform1f(glGetUniformLocation(mainShader.getShaderProgram(), "mixFactor"), mixFactor);
+        std::cerr << "mixfactor : " << mixFactor << std::endl;
+        glCheckError();
         glUniform1f(glGetUniformLocation(mainShader.getShaderProgram(), "brightness"), brightness);
+        glCheckError();
         glUniform1f(glGetUniformLocation(mainShader.getShaderProgram(), "contrast"), contrast);
+        glCheckError();
         glUniform1f(glGetUniformLocation(mainShader.getShaderProgram(), "saturation"), saturation);
+        glCheckError();
 
         glUniform3fv(glGetUniformLocation(mainShader.getShaderProgram(), "lightPos"), 1, &lightposition[0]);
+        glCheckError();
         glUniform3fv(glGetUniformLocation(mainShader.getShaderProgram(), "lightColor"), 1, &lightcolor[0]);
+        glCheckError();
         glUniform1f(glGetUniformLocation(mainShader.getShaderProgram(), "lightIntensity"), lightintensity);
-
+        glCheckError();
         //glm::vec3 cameraPosition(30.0f, 30.0f, 30.0f); // Example camera position
         //glUniform3fv(glGetUniformLocation(mainShader.getShaderProgram(), "viewPos"), 1, &cameraPosition[0]);
 
@@ -554,14 +590,17 @@ public:
         glUniform1f(glGetUniformLocation(mainShader.getShaderProgram(), (spotLightUniformBase + "cutOff").c_str()), node.ui.spotLight.cutOff);
         glUniform1f(glGetUniformLocation(mainShader.getShaderProgram(), (spotLightUniformBase + "outerCutOff").c_str()), node.ui.spotLight.outerCutOff);
 */
-
-
+        //frameBuffer.Unbind();
+        //mainShader.useShaderProgram();
         // Render the cube
         //glBindTexture(GL_TEXTURE_2D, frameBuffer.getFrameTexture());
         glBindVertexArray(cubeVAO);
-        glDrawArrays(GL_TRIANGLES, 0, 36);
-        glBindVertexArray(0);
+        glCheckError();
 
+        glDrawArrays(GL_TRIANGLES, 0, 36);
+        glCheckError();
+        glBindVertexArray(0);
+        glCheckError();
         //GLenum err;
         //while ((err = glGetError()) != GL_NO_ERROR) {
         //    std::cerr << "OpenGL error: " << err << std::endl;
@@ -934,21 +973,27 @@ public:
 
                 if (ImGui::MenuItem("blend")) {
                     const Node textureNode(NodeType::texture);
-
+                    const Node value(NodeType::value, 0.5f);
                     UiNode ui_node;
                     ui_node.type = UiNodeType::blend;
-                    ui_node.ui.blend.id = -1;
-                    ui_node.ui.blend.id2 = -1;
-                    ui_node.ui.blend.mixFactor = 0.5f; // Default mix factor
+                    //ui_node.ui.blend.id =  graph_.insert_node(value);
+                    //ui_node.ui.blend.id2 =  graph_.insert_node(value);
+                    ui_node.ui.blend.mixFactor = graph_.insert_node(value);
 
                     const char* file_filters[] = { "*.png", "*.jpg", "*.jpeg", "*.bmp", "*.tga" };
+                    GLuint id,id2 = 0;
 
                     // Load Texture 1
                     const char* selected_file1 = tinyfd_openFileDialog(
                         "Select First Texture", "", 5, file_filters, "Image Files (*.png, *.jpg)", 0);
                     if (selected_file1) {
                         ui_node.ui.blend.path = strdup(selected_file1);
-                        ui_node.ui.blend.id = textureManager.loadTexture(selected_file1);
+                        id = textureManager.loadTexture(selected_file1);
+                        const Node value(NodeType::value, static_cast<float>(id));
+                        ui_node.ui.blend.id =  graph_.insert_node(value);
+                        std::cerr << "ui_node.ui.blend.id: " << ui_node.ui.blend.id << std::endl;
+                        std::cerr << "Texture id: " << id << std::endl;
+
                     }
 
                     // Load Texture 2
@@ -956,16 +1001,19 @@ public:
                         "Select Second Texture", "", 5, file_filters, "Image Files (*.png, *.jpg)", 0);
                     if (selected_file2) {
                         ui_node.ui.blend.path2 = strdup(selected_file2);
-                        ui_node.ui.blend.id2 = textureManager.loadTexture(selected_file2);
+                        id2 = textureManager.loadTexture(selected_file2);
+                        const Node value(NodeType::value, id2);
+                        ui_node.ui.blend.id2 =  graph_.insert_node(value);
+                        std::cerr << "ui_node.ui.blend.id2: " << ui_node.ui.blend.id2 << std::endl;
+                        std::cerr << "Texture id2: " << id2 << std::endl;
                     }
+
 
                     ui_node.id = graph_.insert_node(Node(NodeType::blend));
 
-                    if(!graph_.edge_exists(ui_node.id, ui_node.ui.blend.id) || !graph_.edge_exists(ui_node.id, ui_node.ui.blend.id2)) {
-                        graph_.insert_edge(ui_node.id, ui_node.ui.blend.id);
-                        graph_.insert_edge(ui_node.id, ui_node.ui.blend.id2);
-                        graph_.insert_edge(ui_node.id, ui_node.ui.blend.mixFactor);
-                    }
+                    graph_.insert_edge(ui_node.id, ui_node.ui.blend.id);
+                    graph_.insert_edge(ui_node.id, ui_node.ui.blend.id2);
+                    graph_.insert_edge(ui_node.id, ui_node.ui.blend.mixFactor);
 
                     nodes_.push_back(ui_node);
                     ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
@@ -1278,21 +1326,32 @@ public:
                 ImNodes::EndInputAttribute();
 
                 glm::vec3 color(1.0f, 1.0f, 1.0f);
-                int textureID = 0;
+
                 if (graph_.num_edges_from_node(node.ui.cubeviewport.input) > 0)
                 {
                     int input_id = graph_.node(node.ui.cubeviewport.input).value;
                     color.r = clamp(graph_.node(input_id).value, 0.0f, 1.0f);
                     color.g = clamp(graph_.node(input_id + 1).value, 0.0f, 1.0f);
                     color.b = clamp(graph_.node(input_id + 2).value, 0.0f, 1.0f);
+;
                 }
 
-                //texture = node.ui.texture.id;
-                textureId = node.ui.blend.id;
-                textureId2 = node.ui.blend.id2;
+                unsigned int input_id = (unsigned int)graph_.node(node.ui.blend.id).value;
+                textureId = graph_.node(input_id  + 1).value;
+                textureId2= graph_.node(input_id + 2).value;
+                mixFactor = graph_.node(input_id ).value;
 
+
+                //textureId = (unsigned int)graph_.node(node.ui.blend.id).value;
+                //textureId2 = (unsigned int)graph_.node(node.ui.blend.id2).value;
+                //mixFactor = graph_.node(node.ui.blend.mixFactor).value;
+
+                //texture = node.ui.texture.id;
+                //textureId = node.ui.blend.id;
+                //textureId2 = node.ui.blend.id2;
+                //std::cerr << "textureId: " << textureId << " textureId2: " << textureId2 << std::endl;
                 //std::cerr << textureId << textureId2 << std::endl;
-                mixFactor = node.ui.blend.mixFactor;
+                //mixFactor = 0.2f;//= node.ui.blend.mixFactor;
 
                 brightness = node.ui.colorAdjust.brightness;
                 contrast = node.ui.colorAdjust.contrast;
@@ -1363,7 +1422,7 @@ public:
             }
             break;
             case UiNodeType::blend: {
-                const float node_width = 150.0f;
+                const float node_width = 100.0f;
                 ImNodes::BeginNode(node.id);
 
                 ImNodes::BeginNodeTitleBar();
@@ -1371,23 +1430,23 @@ public:
                 ImNodes::EndNodeTitleBar();
 
                 {
-                    ImNodes::BeginInputAttribute(node.ui.blend.id);
+                    ImNodes::BeginInputAttribute((int)graph_.node(node.ui.blend.id).value);
                     ImGui::TextUnformatted("Texture 1");
                     ImNodes::EndInputAttribute();
-                    ImGui::Image(reinterpret_cast<ImTextureID>(node.ui.blend.id), ImVec2(100, 100));
+                    ImGui::Image(reinterpret_cast<ImTextureID>((int)graph_.node(node.ui.blend.id).value), ImVec2(100, 100));
                 }
 
                 {
-                    ImNodes::BeginInputAttribute(node.ui.blend.id2);
+                    ImNodes::BeginInputAttribute((int)graph_.node(node.ui.blend.id2).value);
                     ImGui::TextUnformatted("Texture 2");
                     ImNodes::EndInputAttribute();
-                    ImGui::Image(reinterpret_cast<ImTextureID>(node.ui.blend.id2), ImVec2(100, 100));
+                    ImGui::Image(reinterpret_cast<ImTextureID>((int)graph_.node(node.ui.blend.id2).value), ImVec2(100, 100));
                 }
 
                 ImGui::Spacing();
 
                 ImGui::PushItemWidth(node_width);
-                ImGui::DragFloat("Mix Factor", &node.ui.blend.mixFactor, 0.01f, 0.0f, 1.0f);
+                ImGui::DragFloat("Mix Factor", &node.ui.blend.mixFactor, 0.5f,0.5f,0.5f);
                 ImGui::PopItemWidth();
 
                 ImNodes::BeginOutputAttribute(node.id);
@@ -1716,7 +1775,6 @@ public:
             case NodeType::texture:
             {
                 const float id = value_stack.top();
-                std::cerr << "id: " << id << std::endl;
                 value_stack.pop();
                 value_stack.push(static_cast<float>(id));
             }
