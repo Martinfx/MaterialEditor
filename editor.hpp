@@ -37,11 +37,6 @@ public:
         setupSphere(1.0f, 16, 16);
         frameBuffer.InitFrameBuffer(800,600);
         glCheckError();
-        //frameBuffer.AddTextureAttachment(GL_RGB, GL_COLOR_ATTACHMENT0);
-        //glCheckError();
-        //frameBuffer.AddTextureAttachment(GL_RGB, GL_COLOR_ATTACHMENT1);
-        //glCheckError();
-        //frameBuffer.SetViewerTextureIndex(1);
         frameBUfferSphere.InitFrameBuffer(800, 600);
         auto shaderCode = ShaderCodeGenerator::generateShaderCode(nodes_, graph_);
         mainShader.loadShaderFromString(shaderCode.vertexCode.c_str(), TypeShader::VERTEX_SHADER);
@@ -104,6 +99,7 @@ private:
         texture,
         blend,
         colorAdjust,
+        filter,
         light,
         pointLight,
         directionalLight,
@@ -171,6 +167,12 @@ private:
                 char* path2;
                 float mixFactor;
             }blend;
+
+            struct
+            {
+                int input;
+                int filterType; // type of filter (0 = blur, 1 = sharpen, 2 = invert)
+            } filter;
 
             struct
             {
@@ -343,6 +345,21 @@ vec3 calculateLighting(vec3 normal, vec3 fragPos, vec3 viewDir, vec3 lightPos, v
     return ambient + diffuse + specular;
 }
 )";
+            ss << R"(
+    vec4 applyFilter(vec4 texColor, int filterType) {
+        if (filterType == 0) {
+            // Rozmazání (jednoduchý box filter)
+            return texColor * 0.8;
+        } else if (filterType == 1) {
+            // Ostření
+            return texColor * 1.2 - vec4(0.1);
+        } else if (filterType == 2) {
+            // Invertování barev
+            return vec4(1.0) - texColor;
+        }
+        return texColor; // Defaultní návrat, pokud není filtr
+    }
+    )";
         }
 
         static void addActiveMacros(std::vector<std::string>& macros, const std::vector<UiNode>& nodes) {
@@ -359,6 +376,9 @@ vec3 calculateLighting(vec3 normal, vec3 fragPos, vec3 viewDir, vec3 lightPos, v
                     break;
                 case UiNodeType::light:
                     macros.push_back("USE_LIGHT_" + std::to_string(node.id));
+                    break;
+                case UiNodeType::filter:
+                    macros.push_back("USE_FILTER_" + std::to_string(node.id));
                     break;
                 default:
                     break;
@@ -398,6 +418,13 @@ vec3 calculateLighting(vec3 normal, vec3 fragPos, vec3 viewDir, vec3 lightPos, v
                 ss << "    vec3 lightEffect = calculateLighting(Normal, FragPos, normalize(viewPos - FragPos),\n";
                 ss << "                             lightPos, lightColor, lightIntensity);\n";
                 ss << "    result *= lightEffect;\n";
+                ss << "#endif\n";
+                break;
+            case UiNodeType::filter:
+                ss << "#ifdef USE_FILTER_" << node.id << "\n";
+                ss << "    vec4 filterResult" << node.id << " = applyFilter(\n";
+                ss << "        texture(texture1, TexCoords), " << node.ui.filter.filterType << ");\n";
+                ss << "    result *= filterResult" << node.id << ".rgb;\n";
                 ss << "#endif\n";
                 break;
             default:
@@ -552,10 +579,13 @@ public:
         glCheckError();
         glUniform1f(glGetUniformLocation(mainShader.getShaderProgram(), "brightness"), brightness);
         glCheckError();
+        std::cerr << "contrast: " << contrast << std::endl;
         glUniform1f(glGetUniformLocation(mainShader.getShaderProgram(), "contrast"), contrast);
         glCheckError();
+        std::cerr << "contrast: " << contrast << std::endl;
         glUniform1f(glGetUniformLocation(mainShader.getShaderProgram(), "saturation"), saturation);
         glCheckError();
+        std::cerr << "saturation: " << saturation << std::endl;
 
         glUniform3fv(glGetUniformLocation(mainShader.getShaderProgram(), "lightPos"), 1, &lightposition[0]);
         glCheckError();
@@ -1005,7 +1035,7 @@ public:
                 }
 
                 if (ImGui::MenuItem("blend")) {
-                    const Node textureNode(NodeType::texture);
+
                     const Node value(NodeType::value, 0.5f);
                     UiNode ui_node;
                     ui_node.type = UiNodeType::blend;
@@ -1041,26 +1071,46 @@ public:
                         std::cerr << "Texture id2: " << id2 << std::endl;
                     }
 
-
                     ui_node.id = graph_.insert_node(Node(NodeType::blend));
 
                     graph_.insert_edge(ui_node.id, ui_node.ui.blend.id);
                     graph_.insert_edge(ui_node.id, ui_node.ui.blend.id2);
                     graph_.insert_edge(ui_node.id, ui_node.ui.blend.mixFactor);
 
+
                     nodes_.push_back(ui_node);
                     ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
                 }
 
                 if (ImGui::MenuItem("adjustcolor")) {
+                    const Node adjustNode(NodeType::colorAdjust);
+                    const Node value(NodeType::value, 0.5f);
                     UiNode ui_node;
                     ui_node.type = UiNodeType::colorAdjust;
 
-                    ui_node.ui.colorAdjust.brightness = 0.0f; // Default brightness
-                    ui_node.ui.colorAdjust.contrast = 1.0f;   // Default contrast
-                    ui_node.ui.colorAdjust.saturation = 1.0f; // Default saturation
+                    ui_node.ui.colorAdjust.brightness = graph_.insert_node(value); // Default brightness
+                    ui_node.ui.colorAdjust.contrast = graph_.insert_node(value);   // Default contrast
+                    ui_node.ui.colorAdjust.saturation = graph_.insert_node(value); // Default saturation
 
-                    ui_node.id = graph_.insert_node(Node(NodeType::colorAdjust));
+                    ui_node.id = graph_.insert_node(adjustNode);
+
+                    graph_.insert_edge(ui_node.id, ui_node.ui.colorAdjust.brightness);
+                    graph_.insert_edge(ui_node.id, ui_node.ui.colorAdjust.contrast);
+                    graph_.insert_edge(ui_node.id, ui_node.ui.colorAdjust.saturation);
+
+                    nodes_.push_back(ui_node);
+                    ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
+                }
+
+                if (ImGui::MenuItem("filter"))
+                {
+                    UiNode ui_node;
+                    ui_node.type = UiNodeType::filter;
+                    ui_node.ui.filter.input = graph_.insert_node(Node(NodeType::value));
+                    ui_node.ui.filter.filterType = 0; // Výchozí typ filtru (rozmazání)
+                    ui_node.id = graph_.insert_node(Node(NodeType::filter));
+
+                    graph_.insert_edge(ui_node.id, ui_node.ui.filter.input);
                     nodes_.push_back(ui_node);
                     ImNodes::SetNodeScreenSpacePos(ui_node.id, click_pos);
                 }
@@ -1364,19 +1414,33 @@ public:
                 {
                     int input_id = graph_.node(node.ui.cubeviewport.input).value;
                     color.r = clamp(graph_.node(input_id).value, 0.0f, 1.0f);
-                    color.g = clamp(graph_.node(input_id + 1).value, 0.0f, 1.0f);
+                   color.g = clamp(graph_.node(input_id + 1).value, 0.0f, 1.0f);
                     color.b = clamp(graph_.node(input_id + 2).value, 0.0f, 1.0f);
 ;
                 }
 
-                unsigned int input_id = (unsigned int)graph_.node(node.ui.blend.id).value;
-                textureId = graph_.node(input_id  + 1).value;
-                textureId2= graph_.node(input_id + 2).value;
-                mixFactor = graph_.node(input_id ).value;
+                if (graph_.num_edges_from_node(node.ui.cubeviewport.input) > 0) {
+                    unsigned int input_id = (unsigned int)graph_.node(node.ui.blend.id).value;
+                    textureId = graph_.node(input_id  + 1).value;
+                    textureId2= graph_.node(input_id + 2).value;
+                    if (graph_.edge_exists(node.ui.cubeviewport.input, input_id)) {
+                        mixFactor = graph_.node(input_id).value;
+                    }
+                }
 
-                brightness = node.ui.colorAdjust.brightness;
-                contrast = node.ui.colorAdjust.contrast;
-                saturation = node.ui.colorAdjust.saturation;
+                if (graph_.node_exists(node.ui.colorAdjust.brightness) &&
+                    graph_.node_exists(node.ui.colorAdjust.contrast) &&
+                    graph_.node_exists(node.ui.colorAdjust.saturation)) {
+
+
+                    brightness = graph_.node(node.ui.colorAdjust.brightness).value;
+                    contrast = graph_.node(node.ui.colorAdjust.contrast).value;
+                    saturation = graph_.node(node.ui.colorAdjust.saturation).value;
+                    std::cerr << "vieport brightness: " << brightness
+                              << " contrast: " << contrast
+                              << " saturation: " << saturation << std::endl;
+                }
+
 
                 lightposition = node.ui.light.position;
                 lightcolor  = node.ui.light.color;
@@ -1478,18 +1542,16 @@ public:
             } break;
 
             case UiNodeType::colorAdjust: {
-                const float node_width = 150.0f;
+                const float node_width = 100.0f;
                 ImNodes::BeginNode(node.id);
 
                 ImNodes::BeginNodeTitleBar();
                 ImGui::TextUnformatted("Color Adjust");
                 ImNodes::EndNodeTitleBar();
 
-                ImGui::PushItemWidth(node_width);
-                ImGui::DragFloat("Brightness", &node.ui.colorAdjust.brightness, 0.01f, -1.0f, 1.0f);
-                ImGui::DragFloat("Contrast", &node.ui.colorAdjust.contrast, 0.01f, 0.0f, 2.0f);
-                ImGui::DragFloat("Saturation", &node.ui.colorAdjust.saturation, 0.01f, 0.0f, 2.0f);
-                ImGui::PopItemWidth();
+                ImGui::DragFloat("Brightness", &graph_.node(node.ui.colorAdjust.brightness).value, 0.01f, -1.0f, 1.0f);
+                ImGui::DragFloat("Contrast", &graph_.node(node.ui.colorAdjust.contrast).value, 0.01f, 0.0f, 2.0f);
+                ImGui::DragFloat("Saturation", &graph_.node(node.ui.colorAdjust.saturation).value, 0.01f, 0.0f, 2.0f);
 
                 ImNodes::BeginOutputAttribute(node.id);
                 ImGui::TextUnformatted("Adjusted Output");
@@ -1498,6 +1560,33 @@ public:
                 ImNodes::EndNode();
             }
             break;
+
+            case UiNodeType::filter:
+            {
+                const float node_width = 100.0f;
+                ImNodes::BeginNode(node.id);
+
+                ImNodes::BeginNodeTitleBar();
+                ImGui::TextUnformatted("Filter");
+                ImNodes::EndNodeTitleBar();
+
+                ImNodes::BeginInputAttribute(node.ui.filter.input);
+                ImGui::TextUnformatted("Input Texture");
+                ImNodes::EndInputAttribute();
+
+                ImGui::PushItemWidth(node_width);
+                const char* filterNames[] = { "Blur", "Sharpen", "Invert" };
+                ImGui::Combo("Filter Type", &node.ui.filter.filterType, filterNames, IM_ARRAYSIZE(filterNames));
+                ImGui::PopItemWidth();
+
+                ImNodes::BeginOutputAttribute(node.id);
+                ImGui::TextUnformatted("Filtered Output");
+                ImNodes::EndOutputAttribute();
+
+                ImNodes::EndNode();
+            }
+            break;
+
             case UiNodeType::light: {
                 ImNodes::BeginNode(node.id);
 
@@ -1683,6 +1772,10 @@ public:
                         break;
                     case UiNodeType::texture:
                         graph_.erase_node(iter->ui.texture.id);
+                        break;
+                    case UiNodeType::blend:
+                        graph_.erase_node(iter->ui.blend.id);
+                        graph_.erase_node(iter->ui.blend.id2);
                         break;
 
                     default:

@@ -14,12 +14,13 @@ enum class NodeType
     texture,
     blend,
     colorAdjust,
-    light,              // Základní světlo
-    pointLight,         // Bodové světlo
-    directionalLight,   // Směrové světlo
-    spotLight,         // Bodové světlo s kuželem
-    lightingModel,     // Node pro nastavení modelu osvětlení (Phong, Blinn-Phong)
-    material           // Materiálové vlastnosti
+    filter,
+    light,
+    pointLight,
+    directionalLight,
+    spotLight,
+    lightingModel,     //  (Phong, Blinn-Phong)
+    material
 };
 
 struct Node
