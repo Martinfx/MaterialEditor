@@ -1,6 +1,10 @@
 #pragma once
 
+#include <iostream>
 #include <fstream>
+#include <sstream>
+#include <GL/glew.h>
+#include <glm/glm.hpp>
 
 enum TypeShader
 {
@@ -24,11 +28,11 @@ public:
     {
         if(type == TypeShader::VERTEX_SHADER)
         {
-           // std::string vertexshader = getShaderReader(shader);
-           // const char *vertex_shader = vertexshader.c_str();
+           std::string vertexshader = getShaderReader(shader);
+           const char *vertex_shader = vertexshader.c_str();
 
             m_vertexShader = glCreateShader(GL_VERTEX_SHADER);
-            glShaderSource(m_vertexShader, 1, &shader, NULL);
+            glShaderSource(m_vertexShader, 1, &vertex_shader, NULL);
             glCompileShader(m_vertexShader);
             shaderCompileStatus(m_vertexShader);
             m_isVertexShader = true;
@@ -36,8 +40,8 @@ public:
 
         if(type == TypeShader::FRAGMENT_SHADER)
         {
-           // std::string fragmentshader = getShaderReader(shader);
-           // const char *fragment_shader = fragmentshader.c_str();
+            //std::string fragmentshader = getShaderReader(shader);
+            //const char *fragment_shader = fragmentshader.c_str();
             m_fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
             glShaderSource(m_fragmentShader, 1, &shader, NULL);
             glCompileShader(m_fragmentShader);
@@ -47,21 +51,25 @@ public:
 
         if(type == TypeShader::GEOMETRY_SHADER)
         {
-            std::string geometryshader = getShaderReader(shader);
-            const char *geometry_shader = geometryshader.c_str();
+            //std::string geometryshader = getShaderReader(shader);
+            //const char *geometry_shader = geometryshader.c_str();
             m_geometryShader = glCreateShader(GL_GEOMETRY_SHADER);
-            glShaderSource(m_geometryShader, 1, &geometry_shader, NULL);
+            glShaderSource(m_geometryShader, 1, &shader, NULL);
             glCompileShader(m_geometryShader);
             m_isGeometryShader = true;
         }
     }
 
-    void useShaderProgram()
+    void loadShaderFromString(const char *shader, TypeShader type) {
+        loadShader(shader, type);
+    }
+
+    void useShaderProgram() const
     {
         glUseProgram(m_id);
     }
 
-    GLuint getShaderProgram()
+    GLuint getShaderProgram() const
     {
         return m_id;
     }
@@ -187,7 +195,7 @@ protected:
             int logLenght;
             GLchar log[1024];
             glGetProgramInfoLog(program, 1024, &logLenght, log);
-            std::cerr << "[INFO] Pogram linker success ! " << log <<
+            std::cerr << "[INFO] Program linker success ! " << log <<
                 " - Log lenght: " << logLenght <<
                 "\n";
         }

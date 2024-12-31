@@ -1,5 +1,9 @@
 #pragma once
 
+#include <vector>
+#include <glm/glm.hpp>
+#include <glm/ext.hpp>
+
 float CubeVertices[] = {
     // Position          // Normals         // Texture coordinations
     -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,  0.0f,  0.0f,
@@ -44,74 +48,122 @@ float CubeVertices[] = {
     -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  1.0f,
     -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,  0.0f,  0.0f
 };
-unsigned int CubeIndices[] = {
-    0, 1, 3, // first triangle
-    1, 2, 3  // second triangle
+float CubeIndices[] = {
+    -1.0f,  1.0f, -1.0f,
+    -1.0f, -1.0f, -1.0f,
+    1.0f, -1.0f, -1.0f,
+    1.0f, -1.0f, -1.0f,
+    1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+    1.0f, -1.0f, -1.0f,
+    1.0f, -1.0f,  1.0f,
+    1.0f,  1.0f,  1.0f,
+    1.0f,  1.0f,  1.0f,
+    1.0f,  1.0f, -1.0f,
+    1.0f, -1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+    1.0f,  1.0f,  1.0f,
+    1.0f,  1.0f,  1.0f,
+    1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+    -1.0f,  1.0f, -1.0f,
+    1.0f,  1.0f, -1.0f,
+    1.0f,  1.0f,  1.0f,
+    1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+    1.0f, -1.0f, -1.0f,
+    1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+    1.0f, -1.0f,  1.0f
 };
 
-#include <vector>
-#include <cmath>
 
 struct Vertex {
-    float x, y, z;
-    float nx, ny, nz; // Normály
-    float u, v;       // UV souřadnice
+    glm::vec3 position;
+    glm::vec3 normal;
+    glm::vec2 texCoords;
 };
 
-std::vector<Vertex> generateSphere(float radius, int latitudeSegments, int longitudeSegments) {
-    std::vector<Vertex> vertices;
+std::vector<Vertex> vertices;
+std::vector<unsigned int> indices;
 
-    for (int lat = 0; lat <= latitudeSegments; ++lat) {
-        float theta = lat * M_PI / latitudeSegments; // Úhel od pólu k pólu
-        float sinTheta = sin(theta);
-        float cosTheta = cos(theta);
+void generateSphere(float radius, int sectorCount, int stackCount) {
+    vertices.clear();
+    indices.clear();
 
-        for (int lon = 0; lon <= longitudeSegments; ++lon) {
-            float phi = lon * 2.0f * M_PI / longitudeSegments; // Úhel kolem koule
-            float sinPhi = sin(phi);
-            float cosPhi = cos(phi);
+    float x, y, z, xy;                          // vertex position
+    float nx, ny, nz, lengthInv = 1.0f / radius;    // vertex normal
+    float s, t;                                 // vertex texCoord
 
-            // Souřadnice vrcholu
-            float x = radius * cosPhi * sinTheta;
-            float y = radius * cosTheta;
-            float z = radius * sinPhi * sinTheta;
+    float sectorStep = 2.0f * glm::pi<float>() / sectorCount;
+    float stackStep = glm::pi<float>() / stackCount;
+    float sectorAngle, stackAngle;
 
-            // Normály
-            float nx = cosPhi * sinTheta;
-            float ny = cosTheta;
-            float nz = sinPhi * sinTheta;
+    // Generování vertexů
+    for(int i = 0; i <= stackCount; ++i) {
+        stackAngle = glm::pi<float>() / 2 - i * stackStep;        // od -pi/2 do pi/2
+        xy = radius * cosf(stackAngle);             // r * cos(u)
+        z = radius * sinf(stackAngle);              // r * sin(u)
 
-            // UV souřadnice
-            float u = 1.0f - (lon / (float)longitudeSegments);
-            float v = 1.0f - (lat / (float)latitudeSegments);
+        for(int j = 0; j <= sectorCount; ++j) {
+            sectorAngle = j * sectorStep;           // od 0 do 2pi
 
-            vertices.push_back({x, y, z, nx, ny, nz, u, v});
+            // vertex position (x, y, z)
+            x = xy * cosf(sectorAngle);             // r * cos(u) * cos(v)
+            y = xy * sinf(sectorAngle);             // r * cos(u) * sin(v)
+
+            // normalized vertex normal (nx, ny, nz)
+            nx = x * lengthInv;
+            ny = y * lengthInv;
+            nz = z * lengthInv;
+
+            // vertex tex coord (s, t) range between [0, 1]
+            s = (float)j / sectorCount;
+            t = (float)i / stackCount;
+
+            Vertex vertex;
+            vertex.position = glm::vec3(x, y, z);
+            vertex.normal = glm::vec3(nx, ny, nz);
+            vertex.texCoords = glm::vec2(s, t);
+            vertices.push_back(vertex);
         }
     }
 
-    return vertices;
+    // Generování indexů
+    for(int i = 0; i < stackCount; ++i) {
+        int k1 = i * (sectorCount + 1);     // začátek aktuálního stacku
+        int k2 = k1 + sectorCount + 1;      // začátek dalšího stacku
+
+        for(int j = 0; j < sectorCount; ++j, ++k1, ++k2) {
+            // 2 trojúhelníky na čtverec
+            if(i != 0) {
+                indices.push_back(k1);
+                indices.push_back(k2);
+                indices.push_back(k1 + 1);
+            }
+
+            if(i != (stackCount-1)) {
+                indices.push_back(k1 + 1);
+                indices.push_back(k2);
+                indices.push_back(k2 + 1);
+            }
+        }
+    }
 }
-
-
-
-const char* shaderVertex =
-"#version 330 core\n"
-"layout(location = 0) in vec3 aPos;\n"
-"uniform mat4 model;\n"
-"uniform mat4 view;\n"
-"uniform mat4 projection;\n"
-"void main()\n"
-"{\n"
-"    gl_Position = projection * view * model * vec4(aPos, 1.0);\n"
-"}\n";
-
-const char* shaderFragment =
-"#version 330 core\n"
-"out vec4 FragColor;\n"
-"uniform vec3 color;\n"
-"void main()\n"
-"{\n"
-"    FragColor = vec4(color, 1.0);\n"
-"}\n";
 
 
