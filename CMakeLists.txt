@@ -17,6 +17,7 @@ find_package(OpenGL REQUIRED)
 find_package(nlohmann_json REQUIRED)
 include_directories(${OPENGL_INCLUDE_DIR})
 add_subdirectory("3rdparty/imnodes")
+add_subdirectory("3rdparty/tinyfiledialogs")
 #add_subdirectory("3rdparty/imgui")
 
 add_executable(materialeditor main.cpp
@@ -25,7 +26,7 @@ add_executable(materialeditor main.cpp
     framebuffer.hpp
     vertex_shader.glsl texture.hpp shader.hpp object.hpp editor.hpp node.h main.cpp link.h framebuffer.hpp debug.hpp)
 
-target_link_libraries(${PROJECT_NAME} ${OPENGL_gl_LIBRARY} ${GLFW_LIBRARIES} ${IMGUI_LIBRARIES} imnodes glfw imgui::imgui OpenGL::GL nlohmann_json::nlohmann_json)
+target_link_libraries(${PROJECT_NAME} ${OPENGL_gl_LIBRARY} ${GLFW_LIBRARIES} ${IMGUI_LIBRARIES} imnodes glfw imgui::imgui OpenGL::GL nlohmann_json::nlohmann_json tinyfiledialogs)
 
 include(GNUInstallDirs)
 install(TARGETS materialeditor

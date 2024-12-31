@@ -540,7 +540,7 @@ void NodeEditor::render() {
     ImVec2 windowSize = ImGui::GetContentRegionAvail();
     frameBuffer.Bind();
     glCheckError();
-    ImGui::Image(reinterpret_cast<ImTextureID>(frameBuffer.getFrameTexture()), windowSize);
+    ImGui::Image(static_cast<ImTextureID>(frameBuffer.getFrameTexture()), windowSize);
     frameBuffer.Unbind();
     glCheckError();
     ImGui::End();

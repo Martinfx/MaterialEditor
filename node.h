@@ -138,14 +138,14 @@ void TextureBlendNode::draw_node() {
         ImNodes::BeginInputAttribute(pins_[0]->unique_id_);
         ImGui::TextUnformatted("Texture 1");
         ImNodes::EndInputAttribute();
-        ImGui::Image(reinterpret_cast<ImTextureID>(texture1), ImVec2(100, 100));
+        ImGui::Image(static_cast<ImTextureID>(texture1), ImVec2(100, 100));
     }
 
     {
         ImNodes::BeginInputAttribute(pins_[1]->unique_id_);
         ImGui::TextUnformatted("Texture 2");
         ImNodes::EndInputAttribute();
-        ImGui::Image(reinterpret_cast<ImTextureID>(texture2), ImVec2(100, 100));
+        ImGui::Image(static_cast<ImTextureID>(texture2), ImVec2(100, 100));
     }
 
     ImGui::PushItemWidth(node_width);
@@ -242,7 +242,7 @@ void CubeViewportNode::draw_node() {
     ImGui::Text("Render View:");
 
     if (textureBuffer > 0) {
-        ImGui::Image(reinterpret_cast<ImTextureID>(textureBuffer), ImVec2(100, 100));
+        ImGui::Image(static_cast<ImTextureID>(textureBuffer), ImVec2(100, 100));
     }
     ImNodes::EndNode();
 }
