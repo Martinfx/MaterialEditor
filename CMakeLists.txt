@@ -20,13 +20,10 @@ add_subdirectory("3rdparty/imnodes")
 #add_subdirectory("3rdparty/imgui")
 
 add_executable(materialeditor main.cpp
-    node.hpp
-    link.hpp
-    editor.hpp
-    graph.hpp
     object.hpp
     shader.hpp
-    framebuffer.hpp)
+    framebuffer.hpp
+    vertex_shader.glsl texture.hpp shader.hpp object.hpp editor.hpp node.h main.cpp link.h framebuffer.hpp debug.hpp)
 
 target_link_libraries(${PROJECT_NAME} ${OPENGL_gl_LIBRARY} ${GLFW_LIBRARIES} ${IMGUI_LIBRARIES} imnodes glfw imgui::imgui OpenGL::GL nlohmann_json::nlohmann_json)
 

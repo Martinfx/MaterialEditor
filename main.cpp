@@ -7,7 +7,7 @@
 #include "imnodes.h"
 
 #include "3rdparty/imnodes/imnodes.h"
-#include "nodeeditor.h"
+#include "editor.hpp"
 
 
 int main() {
