@@ -7,8 +7,8 @@
 #include <nlohmann/json.hpp>
 #include <GL/glew.h>
 #include "3rdparty/tinyfiledialogs/include/tinyfiledialogs/tinyfiledialogs.h"
-#include "node.h"
-#include "link.h"
+#include "node.hpp"
+#include "link.hpp"
 #include "object.hpp"
 #include "shader.hpp"
 #include "debug.hpp"
@@ -118,6 +118,8 @@ private:
     float mixFactor = 0.7f;
     // adjust
     float brightness = 0.0f, contrast =  0.0f, saturation = 0.0f;
+
+    bool invert = false;
 
     Shader mainShader;
     FrameBuffer frameBuffer;
@@ -275,6 +277,9 @@ void NodeEditor::render_viewport(glm::vec3 &color) {
     glUniform1f(glGetUniformLocation(mainShader.getShaderProgram(), "saturation"), saturation);
     glCheckError();
     std::cerr << "saturation: " << saturation << std::endl;
+    glUniform1i(glGetUniformLocation(mainShader.getShaderProgram(), "invert"), invert);
+    glCheckError();
+
 
     glBindVertexArray(cubeVAO);
     glCheckError();
@@ -286,21 +291,22 @@ void NodeEditor::render_viewport(glm::vec3 &color) {
 }
 
 std::string NodeEditor::generateShaderCode() {
-    std::stringstream shaderCode;
+        std::stringstream shaderCode;
 
-    shaderCode << "#version 330 core\n\n";
-    shaderCode << "in vec2 TexCoords;\n";
-    shaderCode << "in vec3 Normal;\n";
-    shaderCode << "in vec3 FragPos;\n";
-    shaderCode << "out vec4 FragColor;\n\n";
-    shaderCode << "uniform sampler2D tex0;\n";
-    shaderCode << "uniform sampler2D tex1;\n";
-    shaderCode << "uniform float mixFactor;\n";
-    shaderCode << "uniform float brightness;\n";
-    shaderCode << "uniform float contrast;\n";
-    shaderCode << "uniform float saturation;\n";
+        shaderCode << "#version 330 core\n\n";
+        shaderCode << "in vec2 TexCoords;\n";
+        shaderCode << "in vec3 Normal;\n";
+        shaderCode << "in vec3 FragPos;\n";
+        shaderCode << "out vec4 FragColor;\n\n";
+        shaderCode << "uniform sampler2D tex0;\n";
+        shaderCode << "uniform sampler2D tex1;\n";
+        shaderCode << "uniform float mixFactor;\n";
+        shaderCode << "uniform float brightness;\n";
+        shaderCode << "uniform float contrast;\n";
+        shaderCode << "uniform float saturation;\n";
+        shaderCode << "uniform bool invert;\n";
 
-    shaderCode << R"(
+        shaderCode << R"(
     vec3 adjustColor(vec3 color, float brightness, float contrast, float saturation) {
         color += brightness;
         color = (color - 0.5) * contrast + 0.5;
@@ -311,25 +317,33 @@ std::string NodeEditor::generateShaderCode() {
     vec4 blendTextures(vec4 tex1, vec4 tex2, float factor) {
         return mix(tex1, tex2, factor);
     }
+
+    vec3 invertColor(vec3 color) {
+        return vec3(1.0) - color; // Inverze barev
+    }
     )";
 
-    shaderCode << "void main() {\n";
-    shaderCode << "    vec3 color = vec3(1.0f);\n";
+        shaderCode << "void main() {\n";
+        shaderCode << "    vec3 color = texture(tex0, TexCoords).rgb;\n";
 
-    auto sortedNodes = topologicalSort();
-    for (const auto& node : sortedNodes) {
-        if (node->get_type() == NodeType::Blend) {
-            shaderCode << "    vec4 blendResult = blendTextures(texture(tex0, TexCoords), texture(tex1, TexCoords), mixFactor);\n";
-            shaderCode << "    color *= blendResult.rgb;\n";
-        } else if (node->get_type() == NodeType::ColorAdjust) {
-            shaderCode << "    color *= adjustColor(color, brightness, contrast, saturation);\n";
+        auto sortedNodes = topologicalSort();
+        for (const auto& node : sortedNodes) {
+            if (node->get_type() == NodeType::Blend) {
+                shaderCode << "    vec4 blendResult = blendTextures(texture(tex0, TexCoords), texture(tex1, TexCoords), mixFactor);\n";
+                shaderCode << "    color = blendResult.rgb;\n";
+            } else if (node->get_type() == NodeType::ColorAdjust) {
+                shaderCode << "    color = adjustColor(color, brightness, contrast, saturation);\n";
+            } else if (node->get_type() == NodeType::InvertColor) {
+                shaderCode << "    if (invert) {\n";
+                shaderCode << "        color = invertColor(color);\n";
+                shaderCode << "    }\n";
+            }
         }
-    }
 
+        shaderCode << "    FragColor = vec4(color, 1.0);\n";
+        shaderCode << "}\n";
 
-    shaderCode <<"  FragColor = vec4(color, 1.0); }\n";
-
-    return shaderCode.str();
+        return shaderCode.str();
 }
 
 void NodeEditor::updateShader() {
@@ -485,7 +499,7 @@ void NodeEditor::render() {
 
     if (ImGui::BeginPopup("add node"))
     {
-        const ImVec2 click_pos = ImGui::GetMousePosOnOpeningCurrentPopup();
+        //const ImVec2 click_pos = ImGui::GetMousePosOnOpeningCurrentPopup();
 
         if (ImGui::MenuItem("CubeViewport"))
         {
@@ -527,6 +541,12 @@ void NodeEditor::render() {
             nodes_.push_back(node);
         }
 
+        if (ImGui::MenuItem("InvertColor"))
+        {
+            auto node = new InvertColorNode(glm::vec2(10, 10));
+            nodes_.push_back(node);
+        }
+
         ImGui::EndPopup();
     }
 
@@ -551,9 +571,49 @@ void NodeEditor::render() {
 }
 
 void NodeEditor::render_elements() {
+    // Přenos dat přes propojení
+    for (auto& link : links_) {
+        Node* output_node = nullptr;
+        Node* input_node = nullptr;
+
+        for (auto& node : nodes_) {
+            for (auto& pin : node->get_pins()) {
+                if (pin->unique_id_ == link->output_slot_id_) {
+                    output_node = node;
+                }
+            }
+        }
+
+        for (auto& node : nodes_) {
+            for (auto& pin : node->get_pins()) {
+                if (pin->unique_id_ == link->input_slot_id_) {
+                    input_node = node;
+                }
+            }
+        }
+
+        if (output_node && input_node) {
+            for (auto node : nodes_) {
+                if(node->type_ == NodeType::Blend) {
+                    mixFactor = node->get_data().value;
+                    std::cerr << "mixfactor from blend node: " << mixFactor << std::endl;
+                }
+                else if (node->type_ == NodeType::ColorAdjust){
+                    brightness = node->get_data().value;
+                    contrast = node->get_data().value2;
+                    saturation = node->get_data().value3;
+                }
+                else if (node->type_ == NodeType::InvertColor) {
+                    invert = true;
+                }
+            }
+        }
+    }
+
     for (auto& node : nodes_) {
         node->draw_node();
     }
+
     for (auto& link : links_) {
         ImNodes::Link(link->id_, link->input_slot_id_, link->output_slot_id_);
     }
@@ -666,12 +726,6 @@ void NodeEditor::remove_selected_nodes() {
         for (int node_id : selected_node_ids) {
             remove_node(node_id);
         }
-    }
-}
-
-void NodeEditor::update_links() {
-    for (auto& link : links_) {
-        link->transfer_data();
     }
 }
 

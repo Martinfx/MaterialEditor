@@ -1,6 +1,6 @@
 #pragma once
 
-#include "node.h"
+#include "node.hpp"
 
 struct Link {
     Link() {}
@@ -27,10 +27,4 @@ Link::Link(int input_pin, int output_pin, Node* input_node, Node* output_node)
     : input_slot_id_(input_pin), output_slot_id_(output_pin),
     input_node_(input_node), output_node_(output_node) {
     id_ = get_available_link_id();
-}
-
-void Link::transfer_data() {
-    if (input_node_ && output_node_) {
-        output_node_->set_data(input_node_->get_data());
-    }
 }

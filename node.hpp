@@ -10,6 +10,7 @@ enum NodeType {
     Blend,
     ColorAdjust,
     CubeViewer,
+    InvertColor,
     None
 };
 
@@ -32,7 +33,10 @@ struct Pin {
 
 struct NodeData {
     float value;
-    NodeData() : value(0.0f) {}
+    float value2;
+    float value3;
+
+    NodeData() : value(0.0f), value2(0.0f), value3(0.0f) {}
 
     nlohmann::json to_json() const {
         return nlohmann::json{
@@ -56,11 +60,12 @@ public:
     virtual ~Node();
 
     void virtual draw_node() = 0;
+    NodeData virtual get_data() = 0;
 
     const int& get_unique_id() const { return id_; }
     std::vector<Pin*>& get_pins() { return pins_; }
     NodeType& get_type() { return type_; }
-    NodeData get_data() const { return data_; }
+
     void set_data(const NodeData& data) { data_ = data; }
 
     float get_position_x() const { return position_.x; }
@@ -108,6 +113,7 @@ Node::~Node() {
 class TextureBlendNode : public Node {
 public:
     TextureBlendNode(glm::vec2 position = glm::vec2(0, 0));
+    NodeData get_data() override;
     void draw_node() override;
 
     void setTextures(GLuint tex1, GLuint tex2) {
@@ -124,6 +130,12 @@ TextureBlendNode::TextureBlendNode(glm::vec2 position)
     : Node(position, NodeType::Blend) {
     pins_.push_back(new Pin(None, In, 2));
     pins_.push_back(new Pin(ColorAdjust, Out, 1));
+}
+
+NodeData TextureBlendNode::get_data() {
+    NodeData data;
+    data.value = mix_factor_;
+    return data;
 }
 
 void TextureBlendNode::draw_node() {
@@ -164,6 +176,7 @@ void TextureBlendNode::draw_node() {
 class ColorAdjustNode : public Node {
 public:
     ColorAdjustNode(glm::vec2 position = glm::vec2(0, 0));
+    NodeData get_data() override;
     void draw_node() override;
 
 private:
@@ -176,6 +189,14 @@ ColorAdjustNode::ColorAdjustNode(glm::vec2 position)
     : Node(position, NodeType::ColorAdjust) {
     pins_.push_back(new Pin(Blend, In, 1));
     pins_.push_back(new Pin(CubeViewer, Out, 1));
+}
+
+NodeData ColorAdjustNode::get_data() {
+    NodeData data;
+    data.value = brightness_;
+    data.value2 = contrast_;
+    data.value3 = saturation_;
+    return data;
 }
 
 void ColorAdjustNode::draw_node() {
@@ -207,7 +228,9 @@ void ColorAdjustNode::draw_node() {
 class CubeViewportNode : public Node {
 public:
     explicit CubeViewportNode(glm::vec2 position = glm::vec2(0,0));
+    NodeData get_data() override;
     void draw_node() override;
+
     void set_framebuffer(GLuint framebuffer, GLuint texturebuffer, GLuint texture) {
         framebuffer = framebuffer;
         textureBuffer = texturebuffer;
@@ -225,6 +248,12 @@ CubeViewportNode::CubeViewportNode(glm::vec2 position) : Node(position, NodeType
     textureBuffer(0), render_texture_(0) {
     pins_.push_back(new Pin(ColorAdjust, In, 0));
     pins_.push_back(new Pin(Blend, In, 0));
+}
+
+NodeData CubeViewportNode::get_data() {
+    NodeData data;
+    data.value = 0;
+    return data;
 }
 
 void CubeViewportNode::draw_node() {
@@ -247,3 +276,34 @@ void CubeViewportNode::draw_node() {
     ImNodes::EndNode();
 }
 
+class InvertColorNode : public Node {
+public:
+    InvertColorNode(glm::vec2 position = glm::vec2(0, 0))
+        : Node(position, NodeType::InvertColor) {
+        pins_.push_back(new Pin(NodeType::ColorAdjust, In, 1));
+        pins_.push_back(new Pin(NodeType::Blend, Out, 1));
+    }
+
+    void draw_node() override {
+        ImNodes::BeginNode(get_unique_id());
+
+        ImNodes::BeginNodeTitleBar();
+        ImGui::Text("Invert Color");
+        ImNodes::EndNodeTitleBar();
+
+        ImNodes::BeginInputAttribute(pins_[0]->unique_id_);
+        ImGui::Text("Input Texture");
+        ImNodes::EndInputAttribute();
+
+        ImNodes::BeginOutputAttribute(pins_[1]->unique_id_);
+        ImGui::Text("Output Inverted Texture");
+        ImNodes::EndOutputAttribute();
+
+        ImNodes::EndNode();
+    }
+
+    NodeData get_data() override {
+        NodeData data;
+        return data;
+    }
+};
